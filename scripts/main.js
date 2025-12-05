@@ -82,25 +82,18 @@ physics.setupDragEvents(weightSystem);
 
 ui.init({
     onSpawn: (type, val) => {
-        // Spawn manuel
+        // ... (inchangé)
         const x = physics.width / 2;
         const y = 150; 
-        
-        // --- CORRECTION ---
-        // Si c'est un X et qu'on n'a pas précisé de valeur (null), c'est un 1X par défaut.
         const safeValue = (type === 'X' && !val) ? 1 : val;
-
         let body;
         if (type === 'X') {
             body = weightSystem.createUnknownWeight(x, y, safeValue);
         } else {
             body = weightSystem.createKnownWeight(x, y, safeValue);
         }
-
-        // On utilise safeValue ici aussi
         body.logicData = { type, value: safeValue };
         body.lastZone = null;
-        
         Matter.World.add(physics.engine.world, body);
     },
     onNewEquation: () => {
@@ -113,6 +106,17 @@ ui.init({
     },
     onDivisionModeChange: (mode) => {
         interactionManager.setDivisionMode(mode);
+    },
+    
+    // --- NOUVEAU CALLBACK ---
+    onConfigChange: (newConfig) => {
+        console.log("Configuration reçue UI:", newConfig);
+        logic.updateConfig(newConfig);
+        
+        // On régénère une équation tout de suite pour appliquer la difficulté
+        logic.generateNewEquation();
+        physics.onUpdateUI();
+        syncSceneToMaths();
     }
 });
 

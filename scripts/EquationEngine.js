@@ -1,16 +1,14 @@
 export class EquationEngine {
   constructor() {
-    // NOUVEL ÉTAT : Des listes d'objets (Inventaire)
-    // lhs = Left Hand Side (Gauche), rhs = Right Hand Side (Droite)
     this.state = {
-      lhs: [], // ex: [{type: 'X', val: 2}, {type: 'known', val: 5}]
+      lhs: [], 
       rhs: [],
       xValue: 0
     };
 
     this.config = {
       minX: 1, maxX: 10,
-      coeffRange: { min: 1, max: 5 },
+      coeffRange: { min: 1, max: 5 }, // C'est cette config qui était ignorée
       constantRange: { min: 1, max: 20 }
     };
   }
@@ -18,95 +16,82 @@ export class EquationEngine {
   generateNewEquation() {
     const x = this.randomInt(this.config.minX, this.config.maxX);
     
-    // On génère des coefficients aléatoires
-    let a = this.randomInt(1, 4);
-    let c = a;
-    while (c === a) c = this.randomInt(1, 4);
+    // --- CORRECTION DÉFINITIVE ---
+    // On utilise les bornes de la config (pilotées par le nouveau slider)
+    const minCoeff = this.config.coeffRange.min;
+    const maxCoeff = this.config.coeffRange.max;
 
-    let b = this.randomInt(1, 10);
+    // Choix de a
+    let a = this.randomInt(minCoeff, maxCoeff);
+    let c = a;
+
+    // On s'assure que a != c (sauf si min == max, cas rare)
+    if (minCoeff !== maxCoeff) {
+        while (c === a) {
+            c = this.randomInt(minCoeff, maxCoeff);
+        }
+    }
+    // -----------------------------
+
+    let b = this.randomInt(1, this.config.constantRange.max);
     let d = (a * x) + b - (c * x);
 
-    // Si l'équation est impossible (d < 0), on recommence
     if (d < 0) return this.generateNewEquation();
 
     this.state.xValue = x;
     this.resetCounts(); 
 
-    // On retourne la recette pour que le main.js sache quoi faire tomber
     return { a, b, c, d }; 
   }
 
+  // ... (resetCounts, updateWeight, calculateTiltFactor, getEquationString, randomInt restent inchangés) ...
   resetCounts() {
     this.state.lhs = [];
     this.state.rhs = [];
   }
 
-  /**
-   * Ajoute ou retire un objet spécifique de l'inventaire
-   */
   updateWeight(side, type, value, operation = 'add') {
     const list = side === 'left' ? this.state.lhs : this.state.rhs;
-
     if (operation === 'add') {
-        // On ajoute l'objet à la liste
         list.push({ type, val: value });
     } else {
-        // On cherche un objet identique pour le retirer (le premier trouvé)
         const index = list.findIndex(item => item.type === type && item.val === value);
-        if (index !== -1) {
-            list.splice(index, 1);
-        }
+        if (index !== -1) list.splice(index, 1);
     }
   }
 
-  /**
-   * Calcule si la balance penche (Somme des masses réelles)
-   */
   calculateTiltFactor() {
-    // Fonction helper pour calculer le poids total d'un côté
     const sumSide = (list) => list.reduce((acc, item) => {
-        // Si c'est X, on multiplie par la valeur cachée de X. Sinon c'est juste la valeur.
         const mass = item.type === 'X' ? (item.val * this.state.xValue) : item.val;
         return acc + mass;
     }, 0);
-
     const leftMass = sumSide(this.state.lhs);
     const rightMass = sumSide(this.state.rhs);
     const delta = leftMass - rightMass;
-
     const maxTilt = 0.6; 
     const sensitivity = 0.05;
     const targetAngle = Math.max(Math.min(delta * -sensitivity, maxTilt), -maxTilt);
-
-    return { 
-        delta, 
-        targetAngle, 
-        status: delta === 0 ? 'EQUILIBRIUM' : (delta > 0 ? 'LEFT_HEAVY' : 'RIGHT_HEAVY') 
-    };
+    return { delta, targetAngle, status: delta === 0 ? 'EQUILIBRIUM' : (delta > 0 ? 'LEFT_HEAVY' : 'RIGHT_HEAVY') };
   }
 
-  /**
-   * Génère le texte de l'équation (ex: "2X + X + 5")
-   */
   getEquationString() {
     const formatList = (list) => {
         if (list.length === 0) return "0";
-        
-        // On trie pour faire joli : les X d'abord, puis les nombres
-        // Et on regroupe les gros d'abord (2X avant X)
         const sorted = [...list].sort((a, b) => {
-            if (a.type !== b.type) return a.type === 'X' ? -1 : 1; // X avant Nombre
-            return b.val - a.val; // Plus grand d'abord
+            if (a.type !== b.type) return a.type === 'X' ? -1 : 1; 
+            return b.val - a.val; 
         });
-
-        // On transforme la liste en texte
         return sorted.map(item => {
             if (item.type === 'X') return item.val === 1 ? "X" : `${item.val}X`;
             return item.val;
         }).join(" + ");
     };
-
     return `${formatList(this.state.lhs)} = ${formatList(this.state.rhs)}`;
+  }
+
+  updateConfig(newConfig) {
+      this.config = { ...this.config, ...newConfig };
+      console.log("Config mise à jour :", this.config);
   }
 
   randomInt(min, max) {

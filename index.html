@@ -45,7 +45,24 @@
             <select id="division-mode-select">
                 <option value="atomic">Atomique (1+1+1...)</option>
                 <option value="binary">Moitié / Moitié</option>
-                </select>
+            </select>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
+
+        <div class="setting-group">
+            <label>Valeur de X (Solution) : <span id="lbl-max-x" style="color:#e74c3c; font-weight:bold;">10</span></label>
+            <input type="range" id="inp-max-x" min="2" max="20" value="10" step="1">
+        </div>
+
+        <div class="setting-group">
+            <label>Nombre Max de X (Coeff) : <span id="lbl-max-coeff" style="color:#9b59b6; font-weight:bold;">5</span></label>
+            <input type="range" id="inp-max-coeff" min="2" max="10" value="5" step="1">
+        </div>
+
+        <div class="setting-group">
+            <label>Constantes Max : <span id="lbl-max-c" style="color:#3498db; font-weight:bold;">20</span></label>
+            <input type="range" id="inp-max-c" min="5" max="50" value="20" step="1">
         </div>
 
         <button id="close-settings">Fermer</button>

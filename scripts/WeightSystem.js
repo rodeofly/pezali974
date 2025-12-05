@@ -7,15 +7,20 @@ export class WeightSystem {
     }
 
     /**
-     * USINE UNIQUE : Crée un poids, configure ses données et le prépare.
+     * USINE UNIQUE : Crée un poids avec une taille maîtrisée.
      */
     create(type, x, y, value) {
         let body;
         
         if (type === 'X') {
-            // X inconnu : la taille dépend du coefficient (value)
+            // --- CORRECTION TAILLE X ---
+            // Avant : baseSize + (value - 1) * 10 (Linéaire -> Explosion)
+            // Après : Croissance douce (Logarithmique)
+            // 1X -> 40px
+            // 10X -> 65px (et pas 140px)
+            // 20X -> 75px (et pas 240px)
             const baseSize = 40;
-            const size = baseSize + (value - 1) * 10; 
+            const size = baseSize + Math.log(value) * 12; 
             
             body = Matter.Bodies.rectangle(x, y, size, size, {
                 restitution: 0.1, friction: 0.9, density: 0.002,
@@ -23,8 +28,13 @@ export class WeightSystem {
                 label: 'weight'
             });
         } else {
-            // Poids connu : le rayon dépend de la valeur
-            const radius = 15 + (value * 1.5);
+            // --- CORRECTION TAILLE NOMBRES ---
+            // Avant : 15 + value * 1.5 (Pour 124 -> Rayon 200px -> Diamètre 400px !)
+            // Après : Racine carrée ou Logarithme
+            // 1 -> Rayon 18px
+            // 100 -> Rayon 45px
+            // 150 -> Rayon 50px
+            const radius = 15 + Math.sqrt(value) * 3;
             
             body = Matter.Bodies.circle(x, y, radius, {
                 restitution: 0.1, friction: 0.8, density: 0.002,
@@ -33,18 +43,14 @@ export class WeightSystem {
             });
         }
 
-        // Configuration Standardisée (DRY)
         body.logicData = { type, value };
         body.lastZone = null;
 
-        // On l'ajoute à notre map interne si besoin (optionnel avec la nouvelle logique)
         this.bodyMap.set(body.id, body.logicData);
 
         return body;
     }
 
-    // Garde les anciennes méthodes pour compatibilité si besoin, 
-    // mais idéalement on utilise 'create' partout.
     createKnownWeight(x, y, value) { return this.create('known', x, y, value); }
     createUnknownWeight(x, y, value) { return this.create('X', x, y, value); }
 
