@@ -1,63 +1,52 @@
 import Matter from 'matter-js';
+import { C } from './Constants.js';
 
 export class WeightSystem {
     constructor() {
-        // Dictionnaire pour mapper body.id -> { type: 'known'|'X', value: number }
         this.bodyMap = new Map();
     }
 
     /**
-     * Crée un poids numérique (ex: 1, 2, 5)
-     * Forme : Cercle (roule bien)
-     * [cite: 61]
+     * USINE UNIQUE : Crée un poids, configure ses données et le prépare.
      */
-    createKnownWeight(x, y, value) {
-        const radius = 15 + (value * 2); // Taille proportionnelle
-        const body = Matter.Bodies.circle(x, y, radius, {
-            restitution: 0.1, // Rebondit un peu
-            friction: 0.8,
-            density: 0.002, // Assez lourd
-            render: {
-                fillStyle: '#3498db', // Bleu
-                strokeStyle: '#2980b9',
-                lineWidth: 2
-            },
-            label: 'weight' // Tag pour la détection
-        });
+    create(type, x, y, value) {
+        let body;
+        
+        if (type === 'X') {
+            // X inconnu : la taille dépend du coefficient (value)
+            const baseSize = 40;
+            const size = baseSize + (value - 1) * 10; 
+            
+            body = Matter.Bodies.rectangle(x, y, size, size, {
+                restitution: 0.1, friction: 0.9, density: 0.002,
+                render: { fillStyle: C.COLORS.WEIGHT_UNKNOWN, strokeStyle: '#c0392b', lineWidth: 2 },
+                label: 'weight'
+            });
+        } else {
+            // Poids connu : le rayon dépend de la valeur
+            const radius = 15 + (value * 1.5);
+            
+            body = Matter.Bodies.circle(x, y, radius, {
+                restitution: 0.1, friction: 0.8, density: 0.002,
+                render: { fillStyle: C.COLORS.WEIGHT_KNOWN, strokeStyle: '#2980b9', lineWidth: 2 },
+                label: 'weight'
+            });
+        }
 
-        // On stocke les infos logiques associées à ce corps physique
-        this.bodyMap.set(body.id, { type: 'known', value: value });
+        // Configuration Standardisée (DRY)
+        body.logicData = { type, value };
+        body.lastZone = null;
+
+        // On l'ajoute à notre map interne si besoin (optionnel avec la nouvelle logique)
+        this.bodyMap.set(body.id, body.logicData);
+
         return body;
     }
 
-    /**
-     * Crée le poids inconnu X
-     * Forme : Carré/Boîte (distinct du reste)
-     * 
-     */
-    createUnknownWeight(x, y) {
-        const size = 40;
-        const body = Matter.Bodies.rectangle(x, y, size, size, {
-            restitution: 0.1,
-            friction: 0.9,
-            density: 0.002,
-            render: {
-                fillStyle: '#e74c3c', // Rouge distinctif
-                strokeStyle: '#c0392b',
-                lineWidth: 2
-            },
-            label: 'weight'
-        });
+    // Garde les anciennes méthodes pour compatibilité si besoin, 
+    // mais idéalement on utilise 'create' partout.
+    createKnownWeight(x, y, value) { return this.create('known', x, y, value); }
+    createUnknownWeight(x, y, value) { return this.create('X', x, y, value); }
 
-        // La valeur est null ici, car c'est le LogicEngine qui connaît la vraie valeur de X
-        this.bodyMap.set(body.id, { type: 'X', value: null });
-        return body;
-    }
-
-    /**
-     * Récupère les données logiques d'un corps physique
-     */
-    getData(bodyId) {
-        return this.bodyMap.get(bodyId);
-    }
+    getData(bodyId) { return this.bodyMap.get(bodyId); }
 }

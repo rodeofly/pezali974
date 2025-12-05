@@ -1,7 +1,9 @@
+import { InteractionManager } from './InteractionManager.js'; 
 import { EquationEngine } from './EquationEngine.js';
 import { PhysicsWorld } from './PhysicsWorld.js';
 import { WeightSystem } from './WeightSystem.js';
 import { UIManager } from './UIManager.js';
+import { C } from './Constants.js'; 
 import Matter from 'matter-js';
 
 const logic = new EquationEngine();
@@ -9,83 +11,67 @@ const ui = new UIManager();
 const physics = new PhysicsWorld('scene-container', logic);
 const weightSystem = new WeightSystem();
 
-physics.init();
+// --- CORRECTION 1 : Initialisation unique ---
+// Vous aviez "physics.init()" deux fois. J'ai supprimé le doublon.
+physics.init(); 
+// On passe 'physics' (l'objet complet) au lieu de 'physics.render'
+// On garde 'logic' à la fin pour la gestion des maths
+const interactionManager = new InteractionManager(physics.engine, weightSystem, physics, logic);
+interactionManager.init();
 
-// --- CORRECTION 1 : SUPPRIMER CETTE LIGNE ---
-// physics.setupAutoCleanup(weightSystem); <--- À SUPPRIMER !
-// Le ZoneMonitor s'occupe déjà de tout. Si on garde ça, on aura des bugs de comptage.
+let spawnTimeouts = [];
 
-function getWeightsForValue(value) {
-    // ... (inchangé)
-    const available = [10, 5, 2, 1];
-    const result = [];
-    let remaining = value;
-    for (let w of available) {
-        while (remaining >= w) {
-            result.push(w);
-            remaining -= w;
-        }
-    }
-    return result;
-}
+// On n'a plus besoin de getWeightsForValue pour la génération initiale !
+// On garde la fonction si vous voulez l'utiliser pour le bouton "division monétaire" plus tard.
 
 function spawnWeight(type, val, side) {
-    // Ecartement maximum (les pivots sont à 300, on vise 280)
-    const xOffset = side === 'left' ? -280 : 280;    const x = (physics.width / 2) + xOffset + (Math.random() * 30 - 15);
-    
-    // On spawn plus bas car les plateaux pendent
-    // physics.height / 2 est une bonne approximation pour une balance suspendue
-    const y = physics.height / 2 - 100;
+    const xOffset = side === 'left' ? -C.BALANCE.TRAY_OFFSET : C.BALANCE.TRAY_OFFSET; 
+    const x = (physics.width / 2) + xOffset + (Math.random() * 40 - 20);
+    const y = C.SPAWN.DROP_HEIGHT; 
 
-    let body;
-    if (type === 'X') {
-        body = weightSystem.createUnknownWeight(x, y);
-    } else {
-        body = weightSystem.createKnownWeight(x, y, val);
-    }
-
-    body.logicData = { type, value: val }; 
-    body.lastZone = null; 
+    // Une seule ligne pour tout faire !
+    // Note : pour X, val est le coefficient (ex: 1). Pour known, val est la masse (ex: 5).
+    // La méthode 'create' de WeightSystem gère la distinction.
+    const body = weightSystem.create(type, x, y, val);
 
     Matter.World.add(physics.engine.world, body);
 }
 
-// --- 3. SYNC SCENE ---
 function syncSceneToMaths() {
-    // 1. On vide la scène physique
+    spawnTimeouts.forEach(id => clearTimeout(id));
+    spawnTimeouts = [];
+
     physics.clearWeights();
     
-    // 2. RECETTE (CORRECTION ICI)
-    // On doit COPIER l'état (JSON.stringify) pour briser le lien de référence.
-    // Sinon, quand on fait resetCounts juste après, targetState devient vide aussi !
-    const targetState = JSON.parse(JSON.stringify(logic.state)); 
+    // 1. On demande les paramètres abstraits (a, b, c, d)
+    // Note: generateNewEquation ne remplit plus le state, elle renvoie les params
+    const params = logic.generateNewEquation(); 
     
-    // 3. On remet les compteurs LOGIQUES à zéro pour le WYSIWYG
-    logic.resetCounts();
-    physics.onUpdateUI(); // Affiche 0=0
+    // Le state est vide au départ (resetCounts est appelé dans generateNewEquation)
+    physics.onUpdateUI(); // Affiche 0 = 0
 
-    // 4. On prépare la file d'attente en utilisant la COPIE (targetState)
     const queue = [];
 
-    // Remplissage Gauche
-    for (let i = 0; i < targetState.lhs.xCount; i++) queue.push({t:'X', v:null, s:'left'});
-    getWeightsForValue(targetState.lhs.constant).forEach(v => queue.push({t:'known', v:v, s:'left'}));
+    // --- C'EST ICI LE CHANGEMENT "FUSIONNÉ" ---
+    // Gauche (aX + b)
+    if (params.a > 0) queue.push({t:'X', v:params.a, s:'left'}); // Un seul bloc aX
+    if (params.b > 0) queue.push({t:'known', v:params.b, s:'left'}); // Un seul bloc b
 
-    // Remplissage Droite
-    for (let i = 0; i < targetState.rhs.xCount; i++) queue.push({t:'X', v:null, s:'right'});
-    getWeightsForValue(targetState.rhs.constant).forEach(v => queue.push({t:'known', v:v, s:'right'}));
+    // Droite (cX + d)
+    if (params.c > 0) queue.push({t:'X', v:params.c, s:'right'});
+    if (params.d > 0) queue.push({t:'known', v:params.d, s:'right'});
 
-    // 5. Lancement de la cascade
+    // On lance la cascade (max 4 éléments comme demandé !)
     queue.forEach((item, index) => {
-        setTimeout(() => {
+        const id = setTimeout(() => {
             spawnWeight(item.t, item.v, item.s);
-        }, index * 200); // 200ms pour bien espacer et éviter les collisions
+        }, index * C.SPAWN.DELAY_BETWEEN_DROPS);
+        
+        spawnTimeouts.push(id);
     });
 }
 
-
-// --- LIAISONS ---
-
+// Liaisons
 physics.onUpdateUI = () => {
     ui.updateEquation(logic.getEquationString());
     const state = logic.calculateTiltFactor().status;
@@ -96,23 +82,25 @@ physics.setupDragEvents(weightSystem);
 
 ui.init({
     onSpawn: (type, val) => {
-        // Spawn manuel : on fait apparaître au centre-haut
+        // Spawn manuel
         const x = physics.width / 2;
-        const y = 150; // Assez haut pour ne pas gêner
+        const y = 150; 
         
+        // --- CORRECTION ---
+        // Si c'est un X et qu'on n'a pas précisé de valeur (null), c'est un 1X par défaut.
+        const safeValue = (type === 'X' && !val) ? 1 : val;
+
         let body;
         if (type === 'X') {
-            body = weightSystem.createUnknownWeight(x, y);
+            body = weightSystem.createUnknownWeight(x, y, safeValue);
         } else {
-            body = weightSystem.createKnownWeight(x, y, val);
+            body = weightSystem.createKnownWeight(x, y, safeValue);
         }
 
-        // --- C'EST ICI QUE ÇA MANQUAIT ---
-        // On attache la carte d'identité du poids pour que la balance le reconnaisse
-        body.logicData = { type, value: val };
-        body.lastZone = null; 
-        // ---------------------------------
-
+        // On utilise safeValue ici aussi
+        body.logicData = { type, value: safeValue };
+        body.lastZone = null;
+        
         Matter.World.add(physics.engine.world, body);
     },
     onNewEquation: () => {
@@ -122,10 +110,13 @@ ui.init({
     },
     onReset: () => {
         window.location.reload();
+    },
+    onDivisionModeChange: (mode) => {
+        interactionManager.setDivisionMode(mode);
     }
 });
 
-// Démarrage
+// Start
 logic.generateNewEquation();
 physics.onUpdateUI();
 syncSceneToMaths();

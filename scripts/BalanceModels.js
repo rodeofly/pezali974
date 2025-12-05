@@ -1,73 +1,66 @@
+import { C } from './Constants.js';
 import Matter from 'matter-js';
 
 const { Bodies, Body, Constraint } = Matter;
 
 export const BalanceModels = {
     suspended: (x, y, width, height) => {
-        // --- CONFIG ---
-        const beamY = 140;          
-        const beamWidth = 600;      
-        const chainLength = 280;    
-        const trayWidth = 220;      
+        const beamY = C.BALANCE.BEAM_Y;          
+        const beamWidth = C.BALANCE.BEAM_WIDTH;      
+        const chainLength = C.BALANCE.CHAIN_LENGTH;    
+        const trayWidth = C.BALANCE.TRAY_WIDTH;      
         
-        // --- 1. LE PIED ---
+        // --- PIED ---
         const standBase = Bodies.rectangle(x, height - 20, 200, 20, { 
-            isStatic: true, isSensor: true, render: { fillStyle: '#4a3b32' } 
+            isStatic: true, isSensor: true, render: { fillStyle: C.COLORS.WOOD_DARK } 
         });
         const standPole = Bodies.rectangle(x, (height + beamY)/2, 20, height - beamY, { 
-            isStatic: true, isSensor: true, render: { fillStyle: '#4a3b32' } 
+            isStatic: true, isSensor: true, render: { fillStyle: C.COLORS.WOOD_DARK } 
         });
 
-        // --- 2. LE FLÉAU PILOTÉ ---
+        // --- FLÉAU ---
         const beam = Bodies.rectangle(x, beamY, beamWidth, 15, {
             plugin: { gravityScale: 0 }, 
-            frictionAir: 0.1,
-            
-            // --- SECRET DE LA STABILITÉ ---
-            mass: 10,           // Lourd mais pas trop
-            inertia: Infinity,  // <--- CRUCIAL : Empêche toute rotation physique non désirée
-            
+            frictionAir: C.PHYSICS.FRICTION_AIR,
+            mass: C.PHYSICS.BEAM_MASS,
+            inertia: Infinity,
             render: { fillStyle: '#bfa378', strokeStyle: '#8e7cc3', lineWidth: 1 }
         });
 
-        // Pivot central (Simple clou)
         const pivot = Constraint.create({
             bodyA: beam, pointB: { x: x, y: beamY },
             stiffness: 1, length: 0,
-            render: { visible: true, lineWidth: 6, strokeStyle: '#d4af37' }
+            render: { visible: true, lineWidth: 6, strokeStyle: C.COLORS.GOLD_LIGHT }
         });
 
-        // --- 3. LES PLATEAUX ---
+        // --- PLATEAUX ---
         const createJusticeTray = (sideFactor) => {
             const anchorX = (beamWidth / 2 - 5) * sideFactor;
             const startX = x + anchorX;
             const startY = beamY + chainLength;
-            const wallH = 100; 
+            const wallH = C.BALANCE.TRAY_WALL_HEIGHT; 
             
             const base = Bodies.rectangle(startX, startY, trayWidth, 15, { 
-                render: { fillStyle: '#d4af37' }, plugin: { gravityScale: 0 }
+                render: { fillStyle: C.COLORS.GOLD_LIGHT }, plugin: { gravityScale: 0 }
             });
             const wL = Bodies.rectangle(startX - trayWidth/2, startY - wallH/2, 4, wallH, { 
-                render: { fillStyle: '#d4af37' }, plugin: { gravityScale: 0 }
+                render: { fillStyle: C.COLORS.GOLD_LIGHT }, plugin: { gravityScale: 0 }
             });
             const wR = Bodies.rectangle(startX + trayWidth/2, startY - wallH/2, 4, wallH, { 
-                render: { fillStyle: '#d4af37' }, plugin: { gravityScale: 0 }
+                render: { fillStyle: C.COLORS.GOLD_LIGHT }, plugin: { gravityScale: 0 }
             });
 
             const tray = Body.create({
                 parts: [base, wL, wR],
                 friction: 1, restitution: 0,
-                mass: 3,            // <--- Masse raisonnable pour amortir les chocs
-                inertia: Infinity,  // Ne tourne pas
+                mass: C.PHYSICS.TRAY_MASS,
+                inertia: Infinity,
                 plugin: { gravityScale: 0 }
             });
 
-            // Chaînes
             const chainOptions = {
-                stiffness: 0.9,  // Assez rigide
-                damping: 0.1,    // Amortissement
-                length: chainLength,
-                render: { strokeStyle: '#bdc3c7', lineWidth: 1.5 }
+                stiffness: 0.9, damping: 0.1, length: chainLength,
+                render: { strokeStyle: C.COLORS.CHAIN, lineWidth: 1.5 }
             };
             const attachY = -wallH + 10; 
 

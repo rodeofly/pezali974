@@ -13,6 +13,26 @@ export class UIManager {
      * @param {Function} callbacks - { onSpawn, onNewEquation, onReset }
      */
     init(callbacks) {
+        // Gestion Settings
+        const settingsPanel = document.getElementById('settings-panel');
+        const btnSettings = document.getElementById('btn-settings');
+        const closeSettings = document.getElementById('close-settings');
+        const divisionSelect = document.getElementById('division-mode-select');
+
+        btnSettings.addEventListener('click', () => {
+            settingsPanel.classList.remove('hidden');
+        });
+
+        closeSettings.addEventListener('click', () => {
+            settingsPanel.classList.add('hidden');
+        });
+
+        divisionSelect.addEventListener('change', (e) => {
+            // On notifie le main.js ou directement l'interaction manager
+            if (callbacks.onDivisionModeChange) {
+                callbacks.onDivisionModeChange(e.target.value);
+            }
+        });
         // Bouton X
         this.btnAddX.addEventListener('click', () => {
             callbacks.onSpawn('X', null);

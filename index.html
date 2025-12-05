@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Balance Algébrique - Prototype</title>
+    <title>Balance & Équations - EquaMotion974</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="ui-layer">
-        
         <header>
             <div id="equation-display" class="math-font">Chargement...</div>
             <div id="balance-state">INITIALISATION</div>
@@ -37,6 +36,22 @@
 
         <div id="toast-container"></div>
     </div>
+
+    <div id="settings-panel" class="panel hidden">
+        <h2>🛠️ Configuration</h2>
+        
+        <div class="setting-group">
+            <label for="division-mode-select">Mode de Division (Double-clic)</label>
+            <select id="division-mode-select">
+                <option value="atomic">Atomique (1+1+1...)</option>
+                <option value="binary">Moitié / Moitié</option>
+                </select>
+        </div>
+
+        <button id="close-settings">Fermer</button>
+    </div>
+    
+    <button id="btn-settings">⚙️</button>
 
     <div id="scene-container"></div>
 

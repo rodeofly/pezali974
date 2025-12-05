@@ -1,7 +1,8 @@
 import { BalanceModels } from './BalanceModels.js';
+import { C } from './Constants.js';
 import Matter from 'matter-js';
 
-const { Engine, Render, Runner, World, Bodies, Body, Constraint, Mouse, MouseConstraint, Events, Composite } = Matter;
+const { Engine, Render, Runner, World, Bodies, Body, Composite, Mouse, MouseConstraint, Events } = Matter;
 
 export class PhysicsWorld {
     constructor(containerId, logicEngine) {
@@ -9,11 +10,15 @@ export class PhysicsWorld {
         this.container = document.getElementById(containerId);
         this.width = this.container.clientWidth;
         this.height = this.container.clientHeight;
+        
         this.engine = null;
         this.beam = null;      
         this.leftTray = null;
         this.rightTray = null;
         this.onUpdateUI = null;
+        
+        // Optimisation
+        this.frameCounter = 0; 
     }
 
     init() {
@@ -28,14 +33,17 @@ export class PhysicsWorld {
                 width: this.width,
                 height: this.height,
                 wireframes: false,
-                background: '#222831',
+                background: C.COLORS.BACKGROUND, // Via Constante
                 showAngleIndicator: false
             }
         });
-
+        this.render = render;
+        Events.on(render, 'afterRender', () => {
+            this.renderLabels();
+        });
         this.createBoundaries();
         this.createBalance('suspended'); 
-        this.setupZoneMonitor();
+        this.setupZoneMonitor(); // Version optimisée
 
         Render.run(render);
         const runner = Runner.create();
@@ -46,19 +54,45 @@ export class PhysicsWorld {
         });
     }
 
+    /**
+     * Dessine les valeurs (5, X, 2X...) sur les poids
+     */
+    renderLabels() {
+        const context = this.render.context;
+        const bodies = Composite.allBodies(this.engine.world);
+
+        context.font = "bold 16px Arial";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillStyle = "white"; // Couleur du texte
+
+        bodies.forEach(body => {
+            if (body.label === 'weight' && body.logicData) {
+                const { type, value } = body.logicData;
+                let text = "";
+                
+                if (type === 'X') {
+                    text = value === 1 ? "X" : `${value}X`;
+                } else {
+                    text = value.toString();
+                }
+
+                // On dessine au centre du corps
+                context.fillText(text, body.position.x, body.position.y);
+            }
+        });
+    }
+
     createBalance(modelName) {
         if (this.beam) {
-             Matter.World.clear(this.engine.world);
+             World.clear(this.engine.world);
              this.createBoundaries();
         }
-
-        const model = BalanceModels[modelName](this.width/2, 140, this.width, this.height);
+        const model = BalanceModels[modelName](this.width/2, C.BALANCE.BEAM_Y, this.width, this.height);
         this.beam = model.beam;
         this.leftTray = model.leftTray;
         this.rightTray = model.rightTray;
-
-        // AJOUT AU MONDE (Sans ServoLink !)
-        Matter.World.add(this.engine.world, model.composites);
+        World.add(this.engine.world, model.composites);
     }
 
     createBoundaries() {
@@ -74,27 +108,19 @@ export class PhysicsWorld {
         const { targetAngle } = this.logicEngine.calculateTiltFactor();
         const currentAngle = this.beam.angle;
         
-        // 1. LIMITATEUR D'ANGLE (Sécurité absolue)
-        // On empêche le fléau de dépasser ~30 degrés (0.5 rad)
-        // Si la physique essaie de le tordre, on le remet de force dans les clous.
-        if (currentAngle > 0.6) Body.setAngle(this.beam, 0.6);
-        if (currentAngle < -0.6) Body.setAngle(this.beam, -0.6);
+        // Sécurité Max Angle
+        if (currentAngle > C.PHYSICS.MAX_ANGLE) Body.setAngle(this.beam, C.PHYSICS.MAX_ANGLE);
+        if (currentAngle < -C.PHYSICS.MAX_ANGLE) Body.setAngle(this.beam, -C.PHYSICS.MAX_ANGLE);
 
-        // 2. CONTROLE PID SIMPLIFIÉ
         const diff = targetAngle - currentAngle;
 
-        // Zone morte pour stopper les vibrations
         if (Math.abs(diff) < 0.005) {
             Body.setAngularVelocity(this.beam, 0);
             return;
         }
-
-        // Vitesse douce
-        const speed = diff * 0.05; 
-        Body.setAngularVelocity(this.beam, speed);
+        Body.setAngularVelocity(this.beam, diff * 0.05);
     }
     
-    // ... (Le reste est inchangé : clearWeights, setupDragEvents, setupZoneMonitor, detectZone) ...
     clearWeights() {
         const bodies = Composite.allBodies(this.engine.world);
         const weights = bodies.filter(b => b.label === 'weight');
@@ -103,16 +129,24 @@ export class PhysicsWorld {
 
     setupDragEvents() {
         const mouse = Mouse.create(this.container);
-        const mouseConstraint = MouseConstraint.create(this.engine, {
+        
+        // --- MODIFICATION ICI : On stocke dans 'this' ---
+        this.mouseConstraint = MouseConstraint.create(this.engine, {
             mouse: mouse,
             constraint: { stiffness: 0.2, render: { visible: false } }
         });
-        World.add(this.engine.world, mouseConstraint);
+        
+        World.add(this.engine.world, this.mouseConstraint);
     }
     
+    // --- OPTIMISATION DU MONITEUR ---
     setupZoneMonitor() {
-        Matter.Events.on(this.engine, 'afterUpdate', () => {
-            const bodies = Matter.Composite.allBodies(this.engine.world);
+        Events.on(this.engine, 'afterUpdate', () => {
+            // On ne vérifie que toutes les X frames (ex: 10) pour sauver du CPU
+            this.frameCounter++;
+            if (this.frameCounter % C.SPAWN.ZONE_CHECK_INTERVAL !== 0) return;
+
+            const bodies = Composite.allBodies(this.engine.world);
             let hasChanged = false;
 
             bodies.forEach(body => {
