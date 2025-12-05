@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balance & Équations - EquaMotion974</title>
+  <script type="module" crossorigin src="/EquaMotion974/assets/index-BzNqQszX.js"></script>
+  <link rel="stylesheet" crossorigin href="/EquaMotion974/assets/index-6Q-ISM4H.css">
+</head>
+<body>
+
+    <div id="ui-layer">
+        <header>
+            <div id="equation-display" class="math-font">Chargement...</div>
+            <div id="balance-state">INITIALISATION</div>
+        </header>
+
+        <aside id="controls">
+            <div class="control-group">
+                <h3>Ajouter</h3>
+                <button id="btn-add-x" class="btn-x">Ajouter X</button>
+                <div class="number-grid">
+                    <button class="btn-num" data-val="1">1</button>
+                    <button class="btn-num" data-val="2">2</button>
+                    <button class="btn-num" data-val="5">5</button>
+                    <button class="btn-num" data-val="10">10</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Actions</h3>
+                <button id="btn-new-eq">Nouvelle Équation</button>
+                <button id="btn-reset">Tout effacer</button>
+                <button id="btn-debug-toggle">Debug Physics</button>
+            </div>
+        </aside>
+
+        <div id="toast-container"></div>
+    </div>
+
+    <div id="settings-panel" class="panel hidden">
+        <h2>🛠️ Configuration</h2>
+        
+        <div class="setting-group">
+            <label for="division-mode-select">Mode de Division (Double-clic)</label>
+            <select id="division-mode-select">
+                <option value="atomic">Atomique (1+1+1...)</option>
+                <option value="binary">Moitié / Moitié</option>
+            </select>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
+
+        <div class="setting-group">
+            <label>Valeur de X (Solution) : <span id="lbl-max-x" style="color:#e74c3c; font-weight:bold;">10</span></label>
+            <input type="range" id="inp-max-x" min="2" max="20" value="10" step="1">
+        </div>
+
+        <div class="setting-group">
+            <label>Nombre Max de X (Coeff) : <span id="lbl-max-coeff" style="color:#9b59b6; font-weight:bold;">5</span></label>
+            <input type="range" id="inp-max-coeff" min="2" max="10" value="5" step="1">
+        </div>
+
+        <div class="setting-group">
+            <label>Constantes Max : <span id="lbl-max-c" style="color:#3498db; font-weight:bold;">20</span></label>
+            <input type="range" id="inp-max-c" min="5" max="50" value="20" step="1">
+        </div>
+
+        <button id="close-settings">Fermer</button>
+    </div>
+    
+    <button id="btn-settings">⚙️</button>
+
+    <div id="scene-container"></div>
+
+</body>
+</html>
