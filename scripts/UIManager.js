@@ -78,6 +78,32 @@ export class UIManager {
         });
         this.btnNewEq.addEventListener('click', callbacks.onNewEquation);
         this.btnReset.addEventListener('click', callbacks.onReset);
+
+        // --- GESTION SOLVER BAR ---
+        const inpSolver = document.getElementById('solver-input');
+        const btnSubC = document.getElementById('btn-sub-c');
+        const btnAddC = document.getElementById('btn-add-c');
+        const btnSubX = document.getElementById('btn-sub-x');
+        const btnAddX = document.getElementById('btn-add-x');
+
+        const getSolverValue = () => parseInt(inpSolver.value) || 1;
+
+        // On définit des callbacks génériques pour éviter de répéter
+        const triggerAction = (type, operation) => { // type: 'known'/'X', op: 'add'/'sub'
+            if (callbacks.onSolverAction) {
+                callbacks.onSolverAction({
+                    type: type,
+                    operation: operation,
+                    value: getSolverValue()
+                });
+            }
+        };
+
+        // Câblage
+        btnSubC.addEventListener('click', () => triggerAction('known', 'sub'));
+        btnAddC.addEventListener('click', () => triggerAction('known', 'add'));
+        btnSubX.addEventListener('click', () => triggerAction('X', 'sub'));
+        btnAddX.addEventListener('click', () => triggerAction('X', 'add'));
     }
 
     updateEquation(eqString) {

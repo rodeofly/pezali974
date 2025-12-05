@@ -72,6 +72,36 @@
 
     <div id="scene-container"></div>
 
+    
+    <div id="solver-bar">
+        <div class="solver-group" style="margin-right: 15px; border-right: 1px solid #555; padding-right: 15px;">
+            <label class="switch-label">
+                <input type="checkbox" id="chk-instant-mode">
+                <span class="slider-round"></span>
+            </label>
+            <span class="solver-label" style="font-size:0.7rem; margin-left:5px;">Mode<br>Rapide</span>
+        </div>
+
+        <div class="solver-group">
+            <span class="solver-label">Quantité :</span>
+            <input type="number" id="solver-input" value="1" min="1" max="50">
+        </div>
+
+        <div class="solver-actions">
+            <div class="action-pair">
+                <button class="btn-solve minus" id="btn-sub-c">− ●</button>
+                <button class="btn-solve plus" id="btn-add-c">+ ●</button>
+            </div>
+            
+            <div class="separator"></div>
+
+            <div class="action-pair">
+                <button class="btn-solve minus" id="btn-sub-x">− X</button>
+                <button class="btn-solve plus" id="btn-add-x">+ X</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="./scripts/main.js"></script>
 </body>
 </html>

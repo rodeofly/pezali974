@@ -217,3 +217,134 @@ input[type=range] {
     background: transparent;
     cursor: pointer;
 }
+
+/* --- SOLVER BAR (DOCK) --- */
+#solver-bar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30, 30, 36, 0.95);
+    border: 1px solid #555;
+    border-radius: 16px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    z-index: 90;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+}
+
+.solver-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.solver-label {
+    color: #bbb;
+    font-size: 0.9rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+#solver-input {
+    background: #111;
+    border: 1px solid #444;
+    color: white;
+    padding: 8px;
+    border-radius: 8px;
+    width: 60px;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+.solver-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.action-pair {
+    display: flex;
+    gap: 5px;
+}
+
+.separator {
+    width: 1px;
+    height: 30px;
+    background: #555;
+    margin: 0 5px;
+}
+
+.btn-solve {
+    width: 50px;
+    height: 40px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+    color: white;
+}
+
+.btn-solve:active { transform: scale(0.95); }
+.btn-solve:hover { opacity: 0.9; }
+
+.btn-solve.plus { background: #27ae60; } /* Vert */
+.btn-solve.minus { background: #c0392b; } /* Rouge */
+
+/* Responsive: si l'écran est petit, on stack */
+@media (max-width: 600px) {
+    #solver-bar {
+        width: 90%;
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+/* --- SWITCH BUTTON --- */
+.switch-label {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+}
+
+.switch-label input { 
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-round {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider-round:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider-round {
+    background-color: #2196F3;
+}
+
+input:checked + .slider-round:before {
+    transform: translateX(14px);
+}

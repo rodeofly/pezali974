@@ -7,43 +7,59 @@ export class WeightSystem {
     }
 
     /**
-     * USINE UNIQUE : Crée un poids avec une taille maîtrisée.
+     * USINE UNIQUE : Crée un poids (Positif ou Négatif)
      */
     create(type, x, y, value) {
+        // 1. Gestion du Signe (Antimatière)
+        const isNegative = value < 0;
+        const absValue = Math.abs(value); // On utilise la valeur absolue pour la taille
+        
         let body;
         
+        // 2. DÉFINITION DES COULEURS (C'est ce bloc qui manquait !)
+        let fill, stroke;
         if (type === 'X') {
-            // --- CORRECTION TAILLE X ---
-            // Avant : baseSize + (value - 1) * 10 (Linéaire -> Explosion)
-            // Après : Croissance douce (Logarithmique)
-            // 1X -> 40px
-            // 10X -> 65px (et pas 140px)
-            // 20X -> 75px (et pas 240px)
+            // Rouge si positif, Gris clair si négatif
+            fill = isNegative ? C.COLORS.WEIGHT_NEG_UNKNOWN : C.COLORS.WEIGHT_UNKNOWN;
+            stroke = '#c0392b';
+        } else {
+            // Bleu si positif, Blanc si négatif
+            fill = isNegative ? C.COLORS.WEIGHT_NEG_KNOWN : C.COLORS.WEIGHT_KNOWN;
+            stroke = '#2980b9';
+        }
+
+        // 3. Création du corps
+        // Note: On ajoute un filtre de collision pour que les poids ne touchent pas le fléau fantôme
+        const weightFilter = {
+            category: C.CATEGORIES.WEIGHTS,
+            // Touche : Défaut (Murs), Autres Poids, Plateaux. Mais PAS le Mécanisme (Fléau).
+            mask: C.CATEGORIES.DEFAULT | C.CATEGORIES.WEIGHTS | C.CATEGORIES.TRAYS
+        };
+
+        if (type === 'X') {
             const baseSize = 40;
-            const size = baseSize + Math.log(value) * 12; 
+            // Taille logarithmique pour éviter les géants
+            const size = baseSize + Math.log(Math.max(1, absValue)) * 12; 
             
             body = Matter.Bodies.rectangle(x, y, size, size, {
                 restitution: 0.1, friction: 0.9, density: 0.002,
-                render: { fillStyle: C.COLORS.WEIGHT_UNKNOWN, strokeStyle: '#c0392b', lineWidth: 2 },
-                label: 'weight'
+                render: { fillStyle: fill, strokeStyle: stroke, lineWidth: 2 }, // <--- Ici on utilise 'fill'
+                label: 'weight',
+                collisionFilter: weightFilter
             });
         } else {
-            // --- CORRECTION TAILLE NOMBRES ---
-            // Avant : 15 + value * 1.5 (Pour 124 -> Rayon 200px -> Diamètre 400px !)
-            // Après : Racine carrée ou Logarithme
-            // 1 -> Rayon 18px
-            // 100 -> Rayon 45px
-            // 150 -> Rayon 50px
-            const radius = 15 + Math.sqrt(value) * 3;
+            const radius = 15 + Math.sqrt(Math.max(1, absValue)) * 3;
             
             body = Matter.Bodies.circle(x, y, radius, {
                 restitution: 0.1, friction: 0.8, density: 0.002,
-                render: { fillStyle: C.COLORS.WEIGHT_KNOWN, strokeStyle: '#2980b9', lineWidth: 2 },
-                label: 'weight'
+                render: { fillStyle: fill, strokeStyle: stroke, lineWidth: 2 }, // <--- Ici aussi
+                label: 'weight',
+                collisionFilter: weightFilter
             });
         }
 
-        body.logicData = { type, value };
+        // 4. Données Logiques
+        body.logicData = { type, value }; // On garde la vraie valeur signée (-5)
         body.lastZone = null;
 
         this.bodyMap.set(body.id, body.logicData);

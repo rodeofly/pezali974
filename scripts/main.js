@@ -6,121 +6,147 @@ import { UIManager } from './UIManager.js';
 import { C } from './Constants.js'; 
 import Matter from 'matter-js';
 
+// --- 1. INITIALISATION DES CLASSES ---
 const logic = new EquationEngine();
 const ui = new UIManager();
+// On passe 'logic' au monde physique pour qu'ils puissent communiquer
 const physics = new PhysicsWorld('scene-container', logic);
 const weightSystem = new WeightSystem();
 
-// --- CORRECTION 1 : Initialisation unique ---
-// Vous aviez "physics.init()" deux fois. J'ai supprimé le doublon.
 physics.init(); 
-// On passe 'physics' (l'objet complet) au lieu de 'physics.render'
-// On garde 'logic' à la fin pour la gestion des maths
+
+// Le gestionnaire d'interaction lie tout le monde ensemble
 const interactionManager = new InteractionManager(physics.engine, weightSystem, physics, logic);
 interactionManager.init();
 
+// Variable pour gérer les délais d'apparition (pour pouvoir les annuler)
 let spawnTimeouts = [];
 
-// On n'a plus besoin de getWeightsForValue pour la génération initiale !
-// On garde la fonction si vous voulez l'utiliser pour le bouton "division monétaire" plus tard.
+// --- 2. FONCTIONS UTILITAIRES ---
 
+// Fonction pour faire apparaître un poids physique
 function spawnWeight(type, val, side) {
     const xOffset = side === 'left' ? -C.BALANCE.TRAY_OFFSET : C.BALANCE.TRAY_OFFSET; 
+    // Légère variation aléatoire en X pour que ça ne s'empile pas trop droit
     const x = (physics.width / 2) + xOffset + (Math.random() * 40 - 20);
     const y = C.SPAWN.DROP_HEIGHT; 
 
-    // Une seule ligne pour tout faire !
-    // Note : pour X, val est le coefficient (ex: 1). Pour known, val est la masse (ex: 5).
-    // La méthode 'create' de WeightSystem gère la distinction.
-    const body = weightSystem.create(type, x, y, val);
+    // Sécurité : Si type est 'X' mais value indéfinie, on met 1
+    const safeValue = (type === 'X' && !val) ? 1 : val;
 
+    const body = weightSystem.create(type, x, y, safeValue);
     Matter.World.add(physics.engine.world, body);
 }
 
-function syncSceneToMaths() {
+// Fonction principale : Nouvelle Équation (Remplace ton ancienne logique syncSceneToMaths)
+function startNewEquation() {
+    console.log("Démarrage d'une nouvelle équation...");
+
+    // A. Annuler les objets qui sont en train d'attendre de tomber
     spawnTimeouts.forEach(id => clearTimeout(id));
     spawnTimeouts = [];
 
+    // B. Nettoyer la scène physique existante
     physics.clearWeights();
     
-    // 1. On demande les paramètres abstraits (a, b, c, d)
-    // Note: generateNewEquation ne remplit plus le state, elle renvoie les params
+    // C. Générer la nouvelle équation dans le moteur logique
     const params = logic.generateNewEquation(); 
     
-    // Le state est vide au départ (resetCounts est appelé dans generateNewEquation)
-    physics.onUpdateUI(); // Affiche 0 = 0
+    // D. Mettre à jour l'affichage du texte (UI)
+    physics.onUpdateUI(); 
 
+    // E. Préparer les objets à faire tomber
     const queue = [];
 
-    // --- C'EST ICI LE CHANGEMENT "FUSIONNÉ" ---
-    // Gauche (aX + b)
-    if (params.a > 0) queue.push({t:'X', v:params.a, s:'left'}); // Un seul bloc aX
-    if (params.b > 0) queue.push({t:'known', v:params.b, s:'left'}); // Un seul bloc b
+    // Côté Gauche (aX + b)
+    if (params.a > 0) queue.push({t:'X', v:params.a, s:'left'}); 
+    if (params.b > 0) queue.push({t:'known', v:params.b, s:'left'}); 
 
-    // Droite (cX + d)
+    // Côté Droit (cX + d)
     if (params.c > 0) queue.push({t:'X', v:params.c, s:'right'});
     if (params.d > 0) queue.push({t:'known', v:params.d, s:'right'});
 
-    // On lance la cascade (max 4 éléments comme demandé !)
+    // F. Lancer la chute des objets avec un petit délai entre chaque
     queue.forEach((item, index) => {
         const id = setTimeout(() => {
             spawnWeight(item.t, item.v, item.s);
         }, index * C.SPAWN.DELAY_BETWEEN_DROPS);
-        
         spawnTimeouts.push(id);
     });
 }
 
-// Liaisons
+// --- 3. LIAISONS (CALLBACKS) ---
+
+// Appelé quand la physique change (pour mettre à jour le texte)
 physics.onUpdateUI = () => {
     ui.updateEquation(logic.getEquationString());
     const state = logic.calculateTiltFactor().status;
     ui.updateState(state);
 };
 
+// Active le drag & drop
 physics.setupDragEvents(weightSystem);
 
+// Configuration de l'Interface Utilisateur (Boutons, etc.)
 ui.init({
+    // Appelé quand on glisse un objet depuis le menu (si utilisé)
     onSpawn: (type, val) => {
-        // ... (inchangé)
         const x = physics.width / 2;
         const y = 150; 
         const safeValue = (type === 'X' && !val) ? 1 : val;
-        let body;
-        if (type === 'X') {
-            body = weightSystem.createUnknownWeight(x, y, safeValue);
-        } else {
-            body = weightSystem.createKnownWeight(x, y, safeValue);
-        }
+        
+        const body = weightSystem.create(type, x, y, safeValue);
         body.logicData = { type, value: safeValue };
-        body.lastZone = null;
         Matter.World.add(physics.engine.world, body);
     },
-    onNewEquation: () => {
-        logic.generateNewEquation();
-        physics.onUpdateUI();
-        syncSceneToMaths(); 
-    },
-    onReset: () => {
-        window.location.reload();
-    },
-    onDivisionModeChange: (mode) => {
-        interactionManager.setDivisionMode(mode);
-    },
     
-    // --- NOUVEAU CALLBACK ---
-    onConfigChange: (newConfig) => {
-        console.log("Configuration reçue UI:", newConfig);
-        logic.updateConfig(newConfig);
-        
-        // On régénère une équation tout de suite pour appliquer la difficulté
-        logic.generateNewEquation();
-        physics.onUpdateUI();
-        syncSceneToMaths();
+    // CORRECTION "Nouvelle Équation" : On appelle la fonction définie plus haut
+    onNewEquation: () => { 
+        startNewEquation(); 
+    },
+
+    onReset: () => { window.location.reload(); },
+    
+    onDivisionModeChange: (mode) => { interactionManager.setDivisionMode(mode); },
+    
+    onConfigChange: (newConfig) => { 
+        logic.updateConfig(newConfig); 
+        startNewEquation(); 
+    },
+
+    // --- CŒUR DU PROBLÈME RÉSOLU : SOLVER & MODE RAPIDE ---
+    onSolverAction: (action) => {
+        // action contient { type, value, operation, side }
+
+        // 1. On récupère l'état de TA checkbox grâce à son ID précis
+        const chkInstant = document.getElementById('chk-instant-mode');
+        const isInstant = chkInstant ? chkInstant.checked : false;
+
+        console.log(`Action Solver: ${action.operation} ${action.type} (Mode Rapide: ${isInstant})`);
+
+        // 2. On exécute l'action via PhysicsWorld
+        if (action.operation === 'add') {
+            // Si le bouton spécifie un côté (gauche/droite), on l'utilise. Sinon on ajoute des deux côtés.
+            if (action.side) {
+                physics.addToZone(action.side, action.type, action.value, weightSystem, isInstant);
+            } else {
+                // Boutons centraux (+x, +1) -> Ajout des deux côtés
+                physics.addToZone('left', action.type, action.value, weightSystem, isInstant);
+                physics.addToZone('right', action.type, action.value, weightSystem, isInstant);
+            }
+        } 
+        else if (action.operation === 'sub') {
+            if (action.side) {
+                physics.removeFromZone(action.side, action.type, action.value, weightSystem, isInstant);
+            } else {
+                // Boutons centraux (-x, -1) -> Retrait des deux côtés
+                physics.removeFromZone('left', action.type, action.value, weightSystem, isInstant);
+                physics.removeFromZone('right', action.type, action.value, weightSystem, isInstant);
+            }
+        }
     }
 });
 
-// Start
-logic.generateNewEquation();
-physics.onUpdateUI();
-syncSceneToMaths();
+// --- 4. DÉMARRAGE ---
+// Lance la première équation au chargement de la page
+startNewEquation();

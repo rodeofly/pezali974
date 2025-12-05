@@ -15,11 +15,13 @@ export class PhysicsWorld {
         this.beam = null;      
         this.leftTray = null;
         this.rightTray = null;
-        this.onUpdateUI = null;
         
-        // Optimisation
         this.frameCounter = 0; 
     }
+
+    // ... (init, renderLabels, createBalance, createBoundaries, syncBeamAngle, clearWeights, setupDragEvents RESTENT INCHANGÉS) ...
+    // COPIEZ LES MÉTHODES PRÉCÉDENTES ICI (init, syncBeamAngle, etc.)
+    // JE NE REMETS QUE LES MÉTHODES MODIFIÉES CI-DESSOUS :
 
     init() {
         this.engine = Engine.create();
@@ -33,17 +35,19 @@ export class PhysicsWorld {
                 width: this.width,
                 height: this.height,
                 wireframes: false,
-                background: C.COLORS.BACKGROUND, // Via Constante
+                background: C.COLORS.BACKGROUND,
                 showAngleIndicator: false
             }
         });
         this.render = render;
+        
         Events.on(render, 'afterRender', () => {
             this.renderLabels();
         });
+
         this.createBoundaries();
         this.createBalance('suspended'); 
-        this.setupZoneMonitor(); // Version optimisée
+        this.setupZoneMonitor();
 
         Render.run(render);
         const runner = Runner.create();
@@ -54,40 +58,25 @@ export class PhysicsWorld {
         });
     }
 
-    /**
-     * Dessine les valeurs (5, X, 2X...) sur les poids
-     */
+    // ... (renderLabels, createBalance, createBoundaries, syncBeamAngle, clearWeights, setupDragEvents : Gardez les versions précédentes) ...
     renderLabels() {
         const context = this.render.context;
         const bodies = Composite.allBodies(this.engine.world);
-
         context.font = "bold 16px Arial";
         context.textAlign = "center";
         context.textBaseline = "middle";
-        context.fillStyle = "white"; // Couleur du texte
-
+        context.fillStyle = "white";
         bodies.forEach(body => {
             if (body.label === 'weight' && body.logicData) {
                 const { type, value } = body.logicData;
-                let text = "";
-                
-                if (type === 'X') {
-                    text = value === 1 ? "X" : `${value}X`;
-                } else {
-                    text = value.toString();
-                }
-
-                // On dessine au centre du corps
+                let text = type === 'X' ? (value === 1 ? "X" : `${value}X`) : value.toString();
                 context.fillText(text, body.position.x, body.position.y);
             }
         });
     }
 
     createBalance(modelName) {
-        if (this.beam) {
-             World.clear(this.engine.world);
-             this.createBoundaries();
-        }
+        if (this.beam) { World.clear(this.engine.world); this.createBoundaries(); }
         const model = BalanceModels[modelName](this.width/2, C.BALANCE.BEAM_Y, this.width, this.height);
         this.beam = model.beam;
         this.leftTray = model.leftTray;
@@ -104,23 +93,15 @@ export class PhysicsWorld {
 
     syncBeamAngle() {
         if (!this.beam) return;
-
         const { targetAngle } = this.logicEngine.calculateTiltFactor();
         const currentAngle = this.beam.angle;
-        
-        // Sécurité Max Angle
         if (currentAngle > C.PHYSICS.MAX_ANGLE) Body.setAngle(this.beam, C.PHYSICS.MAX_ANGLE);
         if (currentAngle < -C.PHYSICS.MAX_ANGLE) Body.setAngle(this.beam, -C.PHYSICS.MAX_ANGLE);
-
         const diff = targetAngle - currentAngle;
-
-        if (Math.abs(diff) < 0.005) {
-            Body.setAngularVelocity(this.beam, 0);
-            return;
-        }
+        if (Math.abs(diff) < 0.005) { Body.setAngularVelocity(this.beam, 0); return; }
         Body.setAngularVelocity(this.beam, diff * 0.05);
     }
-    
+
     clearWeights() {
         const bodies = Composite.allBodies(this.engine.world);
         const weights = bodies.filter(b => b.label === 'weight');
@@ -129,20 +110,104 @@ export class PhysicsWorld {
 
     setupDragEvents() {
         const mouse = Mouse.create(this.container);
-        
-        // --- MODIFICATION ICI : On stocke dans 'this' ---
         this.mouseConstraint = MouseConstraint.create(this.engine, {
-            mouse: mouse,
-            constraint: { stiffness: 0.2, render: { visible: false } }
+            mouse: mouse, constraint: { stiffness: 0.2, render: { visible: false } }
         });
-        
         World.add(this.engine.world, this.mouseConstraint);
     }
-    
-    // --- OPTIMISATION DU MONITEUR ---
+
+    // --- CORRECTION AJOUT (Gère le mode Instantané) ---
+    addToZone(zone, type, value, weightSystem, isInstant = false) {
+        const xOffset = zone === 'left' ? -C.BALANCE.TRAY_OFFSET : C.BALANCE.TRAY_OFFSET;
+        // X : un peu d'aléatoire pour ne pas empiler parfaitement
+        const x = (this.width / 2) + xOffset + (Math.random() * 40 - 20);
+        
+        let y;
+        if (isInstant) {
+            // MODE INSTANT : On spawn DANS le plateau (au niveau du fléau + chaine)
+            // On vise un peu au dessus du fond pour ne pas passer à travers
+            y = C.BALANCE.BEAM_Y + C.BALANCE.CHAIN_LENGTH + 20; 
+        } else {
+            // MODE PLUIE : On spawn du ciel
+            y = C.SPAWN.DROP_HEIGHT; 
+        }
+
+        const body = weightSystem.create(type, x, y, value);
+        
+        // Si c'est instantané, on dit au système qu'il est déjà dans la zone
+        // Mais attention, le ZoneMonitor a besoin de voir le changement.
+        // Le mieux est de laisser lastZone à null, le ZoneMonitor le verra "arriver" instantanément.
+        body.lastZone = null; 
+
+        World.add(this.engine.world, body);
+    }
+
+    // --- CORRECTION SUPPRESSION (Gère la mise à jour manuelle) ---
+    removeFromZone(zone, type, amountToRemove, weightSystem) {
+        const bodies = Composite.allBodies(this.engine.world);
+        
+        // 1. Chercher un candidat POSITIF à réduire
+        const candidates = bodies.filter(b => {
+            return b.label === 'weight' &&
+                   this.detectZone(b) === zone &&
+                   b.logicData.type === type &&
+                   b.logicData.value > 0;
+        });
+
+        // On trie pour prendre le plus petit qui est assez grand, ou le plus grand dispo
+        // Stratégie simple : prendre le premier trouvé qui matche
+        const candidate = candidates.find(b => b.logicData.value >= amountToRemove) || candidates[0];
+
+        if (candidate) {
+            const oldValue = candidate.logicData.value;
+            const remaining = oldValue - amountToRemove;
+            
+            // --- MISE À JOUR LOGIQUE MANUELLE (CRITIQUE) ---
+            // On retire l'ancien poids de l'équation TOUT DE SUITE
+            this.logicEngine.updateWeight(zone, type, oldValue, 'remove');
+            
+            // On supprime physiquement
+            World.remove(this.engine.world, candidate);
+
+            // Si il reste un morceau, on le recrée
+            if (remaining > 0) {
+                const pos = candidate.position;
+                const newBody = weightSystem.create(type, pos.x, pos.y, remaining);
+                newBody.lastZone = null; // Le ZoneMonitor va l'ajouter au prochain cycle
+                // On remet la vitesse pour la continuité
+                Body.setVelocity(newBody, candidate.velocity);
+                World.add(this.engine.world, newBody);
+            } else if (remaining < 0) {
+                // Cas complexe : on a retiré plus que ce qu'il y avait (ex: retirer 5 à un bloc de 2)
+                // Mathématiquement : on a retiré 2 (le bloc), il reste 3 à retirer.
+                // On devrait créer de l'antimatière pour le reste (-3).
+                const diff = Math.abs(remaining);
+                const pos = candidate.position;
+                const antiBody = weightSystem.create(type, pos.x, pos.y, -diff);
+                antiBody.lastZone = null;
+                World.add(this.engine.world, antiBody);
+            }
+            
+            // On force une mise à jour UI immédiate
+            if(this.onUpdateUI) this.onUpdateUI();
+            
+            return true;
+        } else {
+            // Cas B : Pas de poids positif trouvé.
+            // On AJOUTE de l'antimatière (-amount)
+            console.log(`Pas de poids trouvés dans ${zone}, ajout d'antimatière.`);
+            // Note: addToZone gère l'ajout physique, le ZoneMonitor gérera l'ajout logique
+            // Mais pour être cohérent avec le "Remove", on peut le faire ici.
+            // Restons simple : addToZone va créer un corps, le ZoneMonitor verra un nouveau corps négatif arriver.
+            // C'est valide mathématiquement : Ajouter -5 = Soustraire 5.
+            this.addToZone(zone, type, -amountToRemove, weightSystem, true); // true = instantané (ou selon le switch, à voir dans main.js)
+            return true;
+        }
+    }
+
+    // ... (setupZoneMonitor, detectZone : Gardez les versions optimisées précédentes) ...
     setupZoneMonitor() {
         Events.on(this.engine, 'afterUpdate', () => {
-            // On ne vérifie que toutes les X frames (ex: 10) pour sauver du CPU
             this.frameCounter++;
             if (this.frameCounter % C.SPAWN.ZONE_CHECK_INTERVAL !== 0) return;
 

@@ -25,13 +25,11 @@ export class InteractionManager {
         this.divisionMode = mode;
     }
 
-    // --- GESTION FUSION ---
+    // --- GESTION FUSION & ANNIHILATION ---
     setupCollisions() {
         Matter.Events.on(this.engine, 'collisionActive', (event) => {
             const pairs = event.pairs;
             const now = Date.now();
-
-            // Récupération de l'objet actuellement tenu par la souris (s'il y en a un)
             const mouseConstraint = this.physicsWorld.mouseConstraint;
             const draggedBody = mouseConstraint ? mouseConstraint.body : null;
 
@@ -43,20 +41,23 @@ export class InteractionManager {
                 if (!bodyA.logicData || !bodyB.logicData) return;
                 if (bodyA.logicData.type !== bodyB.logicData.type) return;
 
-                // --- NOUVELLE RÈGLE DE SÉCURITÉ ---
-                // La fusion ne se lance que si l'un des deux poids est en train d'être déplacé.
-                // Cela empêche les fusions accidentelles quand les poids sont au repos dans le panier.
+                // --- LOGIQUE ANNIHILATION (Contact immédiat) ---
+                // Si les signes sont opposés : BOOM
+                if (Math.sign(bodyA.logicData.value) !== Math.sign(bodyB.logicData.value)) {
+                    this.performAnnihilation(bodyA, bodyB);
+                    return; // Stop traitement
+                }
+
+                // ... (Reste de la logique Fusion avec délai et Dragging inchangée) ...
+                // Copiez-collez votre ancienne logique "isDragging" ici
                 const isDraggingA = (draggedBody === bodyA);
                 const isDraggingB = (draggedBody === bodyB);
-
                 const id = [bodyA.id, bodyB.id].sort().join('-');
 
                 if (!isDraggingA && !isDraggingB) {
-                    // Si on a lâché la souris, on annule toute fusion en cours pour cette paire
                     this.fusionCandidates.delete(id);
                     return;
                 }
-                // ----------------------------------
 
                 if (!this.fusionCandidates.has(id)) {
                     this.fusionCandidates.set(id, now);
@@ -78,6 +79,36 @@ export class InteractionManager {
         });
     }
 
+    performAnnihilation(bodyA, bodyB) {
+        // Supposons A = 5, B = -5. Résultat = 0. Tout disparaît.
+        // Supposons A = 5, B = -2. Résultat = 3. A devient 3, B meurt.
+        
+        // Pour simplifier V1 : On ne gère que l'annihilation totale ou simple
+        // Ici, on va faire une fusion mathématique standard
+        // 5 + (-2) = 3. 
+        
+        // 1. Retrait logique
+        if (bodyA.lastZone) this.logicEngine.updateWeight(bodyA.lastZone, bodyA.logicData.type, bodyA.logicData.value, 'remove');
+        if (bodyB.lastZone) this.logicEngine.updateWeight(bodyB.lastZone, bodyB.logicData.type, bodyB.logicData.value, 'remove');
+
+        const newVal = bodyA.logicData.value + bodyB.logicData.value;
+        const type = bodyA.logicData.type;
+        const newX = (bodyA.position.x + bodyB.position.x) / 2;
+        const newY = (bodyA.position.y + bodyB.position.y) / 2;
+
+        console.log(`💥 ANNIHILATION : ${bodyA.logicData.value} + ${bodyB.logicData.value} = ${newVal}`);
+
+        Matter.World.remove(this.engine.world, [bodyA, bodyB]);
+
+        // Si le résultat n'est pas 0, on crée le reste
+        if (newVal !== 0) {
+            const newBody = this.weightSystem.create(type, newX, newY, newVal);
+            // On lui donne une petite impulsion visuelle
+            Matter.Body.setVelocity(newBody, { x: 0, y: -2 });
+            Matter.World.add(this.engine.world, newBody);
+        }
+    }
+    
     performFusion(bodyA, bodyB) {
         // Retrait Logique
         if (bodyA.lastZone) this.logicEngine.updateWeight(bodyA.lastZone, bodyA.logicData.type, bodyA.logicData.value, 'remove');

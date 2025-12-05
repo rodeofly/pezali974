@@ -10,7 +10,7 @@ export const BalanceModels = {
         const chainLength = C.BALANCE.CHAIN_LENGTH;    
         const trayWidth = C.BALANCE.TRAY_WIDTH;      
         
-        // --- PIED ---
+        // Pied
         const standBase = Bodies.rectangle(x, height - 20, 200, 20, { 
             isStatic: true, isSensor: true, render: { fillStyle: C.COLORS.WOOD_DARK } 
         });
@@ -18,12 +18,17 @@ export const BalanceModels = {
             isStatic: true, isSensor: true, render: { fillStyle: C.COLORS.WOOD_DARK } 
         });
 
-        // --- FLÉAU ---
+        // --- FLÉAU FANTÔME ---
         const beam = Bodies.rectangle(x, beamY, beamWidth, 15, {
             plugin: { gravityScale: 0 }, 
             frictionAir: C.PHYSICS.FRICTION_AIR,
             mass: C.PHYSICS.BEAM_MASS,
             inertia: Infinity,
+            // Ne touche que le mécanisme (pas les poids)
+            collisionFilter: {
+                category: C.CATEGORIES.BALANCE_MECA,
+                mask: C.CATEGORIES.DEFAULT | C.CATEGORIES.BALANCE_MECA 
+            },
             render: { fillStyle: '#bfa378', strokeStyle: '#8e7cc3', lineWidth: 1 }
         });
 
@@ -33,21 +38,30 @@ export const BalanceModels = {
             render: { visible: true, lineWidth: 6, strokeStyle: C.COLORS.GOLD_LIGHT }
         });
 
-        // --- PLATEAUX ---
+        // --- PLATEAUX SOLIDES ---
         const createJusticeTray = (sideFactor) => {
             const anchorX = (beamWidth / 2 - 5) * sideFactor;
             const startX = x + anchorX;
             const startY = beamY + chainLength;
             const wallH = C.BALANCE.TRAY_WALL_HEIGHT; 
             
+            // Filtre : Touche TOUT (Poids inclus)
+            const solidFilter = {
+                category: C.CATEGORIES.TRAYS,
+                mask: C.CATEGORIES.DEFAULT | C.CATEGORIES.WEIGHTS | C.CATEGORIES.BALANCE_MECA
+            };
+
             const base = Bodies.rectangle(startX, startY, trayWidth, 15, { 
-                render: { fillStyle: C.COLORS.GOLD_LIGHT }, plugin: { gravityScale: 0 }
+                render: { fillStyle: C.COLORS.GOLD_LIGHT }, plugin: { gravityScale: 0 },
+                collisionFilter: solidFilter
             });
             const wL = Bodies.rectangle(startX - trayWidth/2, startY - wallH/2, 4, wallH, { 
-                render: { fillStyle: C.COLORS.GOLD_LIGHT }, plugin: { gravityScale: 0 }
+                render: { fillStyle: C.COLORS.GOLD_LIGHT }, plugin: { gravityScale: 0 },
+                collisionFilter: solidFilter
             });
             const wR = Bodies.rectangle(startX + trayWidth/2, startY - wallH/2, 4, wallH, { 
-                render: { fillStyle: C.COLORS.GOLD_LIGHT }, plugin: { gravityScale: 0 }
+                render: { fillStyle: C.COLORS.GOLD_LIGHT }, plugin: { gravityScale: 0 },
+                collisionFilter: solidFilter
             });
 
             const tray = Body.create({
