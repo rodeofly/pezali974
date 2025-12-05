@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Balance & Équations - EquaMotion974</title>
-  <script type="module" crossorigin src="/EquaMotion974/assets/index-BzNqQszX.js"></script>
-  <link rel="stylesheet" crossorigin href="/EquaMotion974/assets/index-6Q-ISM4H.css">
+  <script type="module" crossorigin src="/EquaMotion974/assets/index-eUOE9MdE.js"></script>
+  <link rel="stylesheet" crossorigin href="/EquaMotion974/assets/index-DTLkWvlh.css">
 </head>
 <body>
 
@@ -72,6 +72,36 @@
     <button id="btn-settings">⚙️</button>
 
     <div id="scene-container"></div>
+
+
+    <div id="solver-bar">
+        <div class="solver-group" style="margin-right: 15px; border-right: 1px solid #555; padding-right: 15px;">
+            <label class="switch-label">
+                <input type="checkbox" id="chk-instant-mode">
+                <span class="slider-round"></span>
+            </label>
+            <span class="solver-label" style="font-size:0.7rem; margin-left:5px;">Mode<br>Rapide</span>
+        </div>
+
+        <div class="solver-group">
+            <span class="solver-label">Quantité :</span>
+            <input type="number" id="solver-input" value="1" min="1" max="50">
+        </div>
+
+        <div class="solver-actions">
+            <div class="action-pair">
+                <button class="btn-solve minus" id="btn-solve-sub-c">− ●</button>
+                <button class="btn-solve plus" id="btn-solve-add-c">+ ●</button>
+            </div>
+            
+            <div class="separator"></div>
+
+            <div class="action-pair">
+                <button class="btn-solve minus" id="btn-solve-sub-x">− X</button>
+                <button class="btn-solve plus" id="btn-solve-add-x">+ X</button>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>
