@@ -6,7 +6,7 @@ import { UIManager } from './UIManager.js';
 import { C } from './Constants.js'; 
 import Matter from 'matter-js';
 
-// --- INITIALISATION ---
+// --- 1. INITIALISATION DES CLASSES ---
 const logic = new EquationEngine();
 const ui = new UIManager();
 const physics = new PhysicsWorld('scene-container', logic);
@@ -14,10 +14,19 @@ const weightSystem = new WeightSystem();
 
 physics.init(); 
 
+// --- CORRECTION ICI ---
+// On doit activer la souris (DragEvents) AVANT d'initialiser l'InteractionManager
+// sinon interactionManager.init() plante car il ne trouve pas la souris.
+physics.setupDragEvents(weightSystem);
+
+// Le gestionnaire d'interaction lie tout le monde ensemble
 const interactionManager = new InteractionManager(physics.engine, weightSystem, physics, logic);
 interactionManager.init();
 
+// Variable pour gérer les délais d'apparition (pour pouvoir les annuler)
 let spawnTimeouts = [];
+
+// --- 2. FONCTIONS UTILITAIRES ---
 
 function spawnWeight(type, val, side) {
     const xOffset = side === 'left' ? -C.BALANCE.TRAY_OFFSET : C.BALANCE.TRAY_OFFSET; 
@@ -52,53 +61,56 @@ function startNewEquation() {
     });
 }
 
-// --- LIAISONS ---
+// --- 3. LIAISONS (CALLBACKS) ---
+
 physics.onUpdateUI = () => {
     ui.updateEquation(logic.getEquationString());
     const state = logic.calculateTiltFactor().status;
     ui.updateState(state);
 };
 
-physics.setupDragEvents(weightSystem);
+// (La ligne physics.setupDragEvents était ici avant, ce qui était trop tard)
 
 ui.init({
     onSpawn: (type, val) => {
         const x = physics.width / 2;
         const y = 150; 
         const safeValue = (type === 'X' && !val) ? 1 : val;
+        
         const body = weightSystem.create(type, x, y, safeValue);
         body.logicData = { type, value: safeValue };
         Matter.World.add(physics.engine.world, body);
     },
     
-    onNewEquation: () => startNewEquation(),
-    onReset: () => window.location.reload(),
-    onDivisionModeChange: (mode) => interactionManager.setDivisionMode(mode),
+    onNewEquation: () => { 
+        startNewEquation(); 
+    },
+
+    onReset: () => { window.location.reload(); },
+    
+    onDivisionModeChange: (mode) => { interactionManager.setDivisionMode(mode); },
+    
     onConfigChange: (newConfig) => { 
         logic.updateConfig(newConfig); 
         startNewEquation(); 
     },
 
-    // --- CŒUR DE L'INTERACTION SOLVER ---
     onSolverAction: (action) => {
-        // 1. Checkbox "Mode Rapide"
         const chkInstant = document.getElementById('chk-instant-mode');
         const isInstant = chkInstant ? chkInstant.checked : false;
 
         console.log(`Action Solver: ${action.operation} ${action.value}${action.type} (Instant: ${isInstant})`);
 
-        // 2. Application sur la physique
         if (action.operation === 'add') {
-            // On ajoute des DEUX CÔTÉS pour garder l'équilibre de l'équation
             physics.addToZone('left', action.type, action.value, weightSystem, isInstant);
             physics.addToZone('right', action.type, action.value, weightSystem, isInstant);
         } 
         else if (action.operation === 'sub') {
-            // On retire des DEUX CÔTÉS
             physics.removeFromZone('left', action.type, action.value, weightSystem, isInstant);
             physics.removeFromZone('right', action.type, action.value, weightSystem, isInstant);
         }
     }
 });
 
+// --- 4. DÉMARRAGE ---
 startNewEquation();
