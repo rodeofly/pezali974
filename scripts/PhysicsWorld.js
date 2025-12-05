@@ -19,12 +19,9 @@ export class PhysicsWorld {
         this.frameCounter = 0; 
     }
 
-    // ... (init, renderLabels, createBalance, createBoundaries, syncBeamAngle, clearWeights, setupDragEvents RESTENT INCHANGÉS) ...
-    // COPIEZ LES MÉTHODES PRÉCÉDENTES ICI (init, syncBeamAngle, etc.)
-    // JE NE REMETS QUE LES MÉTHODES MODIFIÉES CI-DESSOUS :
-
     init() {
         this.engine = Engine.create();
+        // Plus d'itérations pour éviter que les objets passent à travers le plateau en mode rapide
         this.engine.positionIterations = 20; 
         this.engine.velocityIterations = 20;
 
@@ -58,7 +55,6 @@ export class PhysicsWorld {
         });
     }
 
-    // ... (renderLabels, createBalance, createBoundaries, syncBeamAngle, clearWeights, setupDragEvents : Gardez les versions précédentes) ...
     renderLabels() {
         const context = this.render.context;
         const bodies = Composite.allBodies(this.engine.world);
@@ -116,96 +112,117 @@ export class PhysicsWorld {
         World.add(this.engine.world, this.mouseConstraint);
     }
 
-    // --- CORRECTION AJOUT (Gère le mode Instantané) ---
+    // =========================================================
+    // CORRECTION MAJEURE : GESTION DES ZONES ET DU SOLVER
+    // =========================================================
+
+    /**
+     * Ajoute un objet.
+     * Si isInstant = true : Apparait directement sur le plateau (magie).
+     * Si isInstant = false : Tombe du ciel (physique).
+     */
     addToZone(zone, type, value, weightSystem, isInstant = false) {
         const xOffset = zone === 'left' ? -C.BALANCE.TRAY_OFFSET : C.BALANCE.TRAY_OFFSET;
-        // X : un peu d'aléatoire pour ne pas empiler parfaitement
+        // Petit décalage aléatoire pour éviter les piles parfaites qui bugs
         const x = (this.width / 2) + xOffset + (Math.random() * 40 - 20);
         
         let y;
         if (isInstant) {
-            // MODE INSTANT : On spawn DANS le plateau (au niveau du fléau + chaine)
-            // On vise un peu au dessus du fond pour ne pas passer à travers
-            y = C.BALANCE.BEAM_Y + C.BALANCE.CHAIN_LENGTH + 20; 
+            // On le pose délicatement sur le plateau
+            // BEAM_Y (140) + Chaine (280) + un peu de marge
+            y = C.BALANCE.BEAM_Y + C.BALANCE.CHAIN_LENGTH + 40; 
         } else {
-            // MODE PLUIE : On spawn du ciel
+            // On le fait tomber du ciel
             y = C.SPAWN.DROP_HEIGHT; 
         }
 
+        // Création via le WeightSystem (gère les couleurs rouge/bleu/gris)
         const body = weightSystem.create(type, x, y, value);
         
-        // Si c'est instantané, on dit au système qu'il est déjà dans la zone
-        // Mais attention, le ZoneMonitor a besoin de voir le changement.
-        // Le mieux est de laisser lastZone à null, le ZoneMonitor le verra "arriver" instantanément.
+        // IMPORTANT : 
+        // En mode Instantané, on triche un peu : on met lastZone à null pour que 
+        // le ZoneMonitor (setupZoneMonitor) détecte l'objet comme "nouveau" et l'ajoute à l'équation.
         body.lastZone = null; 
+
+        // Si c'est instantané, on reset la vélocité pour pas qu'il traverse le sol
+        if(isInstant) {
+            Body.setVelocity(body, { x: 0, y: 0 });
+        }
 
         World.add(this.engine.world, body);
     }
 
-    // --- CORRECTION SUPPRESSION (Gère la mise à jour manuelle) ---
-    removeFromZone(zone, type, amountToRemove, weightSystem) {
+    /**
+     * Retire un objet.
+     * Si isInstant = false (Mode Pluie) : On ne supprime rien ! On fait tomber de l'ANTIMATIÈRE.
+     * Si isInstant = true (Mode Rapide) : On cherche l'objet, on le réduit ou on le supprime.
+     */
+    removeFromZone(zone, type, amountToRemove, weightSystem, isInstant = false) {
+        
+        // --- CAS 1 : MODE PLUIE (PHYSIQUE) ---
+        // L'utilisateur veut retirer 1X. En physique, ça revient à ajouter -1X qui va s'annihiler au contact.
+        if (!isInstant) {
+            console.log(`[Mode Pluie] Largage d'antimatière sur ${zone} : -${amountToRemove}`);
+            // On appelle simplement addToZone avec une valeur NÉGATIVE.
+            // InteractionManager.js gère déjà l'annihilation (collision +X et -X).
+            this.addToZone(zone, type, -amountToRemove, weightSystem, false);
+            return;
+        }
+
+        // --- CAS 2 : MODE RAPIDE (INSTANTANÉ) ---
+        // Là on fait de la chirurgie : on trouve l'objet et on modifie sa valeur.
+        
         const bodies = Composite.allBodies(this.engine.world);
         
-        // 1. Chercher un candidat POSITIF à réduire
+        // On cherche un candidat POSITIF du bon type sur le bon plateau
         const candidates = bodies.filter(b => {
             return b.label === 'weight' &&
                    this.detectZone(b) === zone &&
                    b.logicData.type === type &&
-                   b.logicData.value > 0;
+                   b.logicData.value > 0; // On ne réduit que les positifs
         });
 
-        // On trie pour prendre le plus petit qui est assez grand, ou le plus grand dispo
-        // Stratégie simple : prendre le premier trouvé qui matche
-        const candidate = candidates.find(b => b.logicData.value >= amountToRemove) || candidates[0];
+        // On prend le premier trouvé (ou le plus adapté)
+        const candidate = candidates[0];
 
         if (candidate) {
+            // Calcul mathématique
             const oldValue = candidate.logicData.value;
-            const remaining = oldValue - amountToRemove;
-            
-            // --- MISE À JOUR LOGIQUE MANUELLE (CRITIQUE) ---
-            // On retire l'ancien poids de l'équation TOUT DE SUITE
+            const newValue = oldValue - amountToRemove;
+
+            // 1. On retire l'ancien corps (physique + logique)
             this.logicEngine.updateWeight(zone, type, oldValue, 'remove');
-            
-            // On supprime physiquement
             World.remove(this.engine.world, candidate);
 
-            // Si il reste un morceau, on le recrée
-            if (remaining > 0) {
-                const pos = candidate.position;
-                const newBody = weightSystem.create(type, pos.x, pos.y, remaining);
-                newBody.lastZone = null; // Le ZoneMonitor va l'ajouter au prochain cycle
-                // On remet la vitesse pour la continuité
-                Body.setVelocity(newBody, candidate.velocity);
+            // 2. Si le résultat n'est pas zéro, on recrée le corps résultant
+            if (newValue !== 0) {
+                // On recrée exactement au même endroit
+                const { x, y } = candidate.position;
+                const newBody = weightSystem.create(type, x, y, newValue);
+                
+                // Astuce : On le déclare déjà dans la zone pour éviter une double animation, 
+                // mais on update le moteur logique manuellement juste après
+                newBody.lastZone = zone; 
+                this.logicEngine.updateWeight(zone, type, newValue, 'add');
+
                 World.add(this.engine.world, newBody);
-            } else if (remaining < 0) {
-                // Cas complexe : on a retiré plus que ce qu'il y avait (ex: retirer 5 à un bloc de 2)
-                // Mathématiquement : on a retiré 2 (le bloc), il reste 3 à retirer.
-                // On devrait créer de l'antimatière pour le reste (-3).
-                const diff = Math.abs(remaining);
-                const pos = candidate.position;
-                const antiBody = weightSystem.create(type, pos.x, pos.y, -diff);
-                antiBody.lastZone = null;
-                World.add(this.engine.world, antiBody);
             }
             
-            // On force une mise à jour UI immédiate
+            // Mise à jour de l'affichage
             if(this.onUpdateUI) this.onUpdateUI();
-            
-            return true;
+
         } else {
-            // Cas B : Pas de poids positif trouvé.
-            // On AJOUTE de l'antimatière (-amount)
-            console.log(`Pas de poids trouvés dans ${zone}, ajout d'antimatière.`);
-            // Note: addToZone gère l'ajout physique, le ZoneMonitor gérera l'ajout logique
-            // Mais pour être cohérent avec le "Remove", on peut le faire ici.
-            // Restons simple : addToZone va créer un corps, le ZoneMonitor verra un nouveau corps négatif arriver.
-            // C'est valide mathématiquement : Ajouter -5 = Soustraire 5.
-            this.addToZone(zone, type, -amountToRemove, weightSystem, true); // true = instantané (ou selon le switch, à voir dans main.js)
-            return true;
+            // CAS SPÉCIAL : Pas d'objet à réduire (ex: plateau vide).
+            // Le client demande : "spawn un -x".
+            console.log(`[Mode Rapide] Pas de cible, création directe de négatif.`);
+            
+            // On crée directement le négatif sur le plateau
+            // Note : addToZone gère la création physique.
+            // Comme c'est instantané, le ZoneMonitor va le détecter et mettre à jour l'équation (0 - x = -x).
+            this.addToZone(zone, type, -amountToRemove, weightSystem, true);
         }
     }
 
-    // ... (setupZoneMonitor, detectZone : Gardez les versions optimisées précédentes) ...
     setupZoneMonitor() {
         Events.on(this.engine, 'afterUpdate', () => {
             this.frameCounter++;
@@ -217,6 +234,8 @@ export class PhysicsWorld {
             bodies.forEach(body => {
                 if (body.label !== 'weight') return;
                 const currentZone = this.detectZone(body);
+                // Si l'objet vient d'être créé (lastZone = null) et touche un plateau, on l'ajoute
+                // Si l'objet change de plateau (rare mais possible), on update
                 const lastZone = body.lastZone || null;
 
                 if (currentZone !== lastZone) {

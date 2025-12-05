@@ -4,15 +4,11 @@ export class UIManager {
         this.stateEl = document.getElementById('balance-state');
         this.btnNewEq = document.getElementById('btn-new-eq');
         this.btnReset = document.getElementById('btn-reset');
-        this.btnAddX = document.getElementById('btn-add-x');
+        // Celui-ci correspond au bouton du menu latéral (PAS touche !)
+        this.btnAddX = document.getElementById('btn-add-x'); 
         this.numButtons = document.querySelectorAll('.btn-num');
     }
 
-    /**
-     * Initialise les écouteurs d'événements
-     * @param {Function} callbacks - { onSpawn, onNewEquation, onReset }
-     */
-    
     init(callbacks) {
         // --- Gestion Panel ---
         const settingsPanel = document.getElementById('settings-panel');
@@ -23,12 +19,8 @@ export class UIManager {
         // SLIDERS
         const inpMaxX = document.getElementById('inp-max-x');
         const lblMaxX = document.getElementById('lbl-max-x');
-
-
-        // NOUVEAU
         const inpMaxCoeff = document.getElementById('inp-max-coeff');
         const lblMaxCoeff = document.getElementById('lbl-max-coeff');
-        
         const inpMaxC = document.getElementById('inp-max-c');
         const lblMaxC = document.getElementById('lbl-max-c');
 
@@ -41,35 +33,30 @@ export class UIManager {
 
         // --- SLIDER X ---
         inpMaxX.addEventListener('input', (e) => {
-            lblMaxX.innerText = e.target.value; // Mise à jour visuelle
+            lblMaxX.innerText = e.target.value; 
         });
         inpMaxX.addEventListener('change', (e) => {
-            // Validation et Envoi
             if (callbacks.onConfigChange) callbacks.onConfigChange({ maxX: parseInt(e.target.value) });
         });
 
-        // --- SLIDER CONSTANTES (Gère aussi la complexité des X) ---
+        // --- SLIDER CONSTANTES ---
         inpMaxC.addEventListener('input', (e) => {
             lblMaxC.innerText = e.target.value;
         });
         inpMaxC.addEventListener('change', (e) => {
             if (callbacks.onConfigChange) {
-                const val = parseInt(e.target.value);
-                
-                // --- AJOUT MALIN ---
-                // On augmente proportionnellement le nombre de X (Coefficients)
-                // Formule : 20% de la valeur des constantes, avec un minimum de 4
-                const newMaxCoeff = Math.max(4, Math.floor(val / 4));
-
+                constRP = parseInt(e.target.value);
+                const newMaxCoeff = Math.max(4, Math.floor(constRP / 4));
                 callbacks.onConfigChange({ 
-                    constantRange: { min: 1, max: val },
-                    coeffRange: { min: 1, max: newMaxCoeff } // <--- C'est ça qui débloque les X !
+                    constantRange: { min: 1, max: constRP },
+                    coeffRange: { min: 1, max: newMaxCoeff }
                 });
             }
         });
 
-        // --- BOUTONS CLASSIQUES ---
-        this.btnAddX.addEventListener('click', () => callbacks.onSpawn('X', null));
+        // --- BOUTONS CLASSIQUES (SIDEBAR) ---
+        if(this.btnAddX) this.btnAddX.addEventListener('click', () => callbacks.onSpawn('X', null));
+        
         this.numButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const val = parseInt(e.target.dataset.val);
@@ -79,17 +66,18 @@ export class UIManager {
         this.btnNewEq.addEventListener('click', callbacks.onNewEquation);
         this.btnReset.addEventListener('click', callbacks.onReset);
 
-        // --- GESTION SOLVER BAR ---
+        // --- GESTION SOLVER BAR (CORRIGÉE) ---
         const inpSolver = document.getElementById('solver-input');
-        const btnSubC = document.getElementById('btn-sub-c');
-        const btnAddC = document.getElementById('btn-add-c');
-        const btnSubX = document.getElementById('btn-sub-x');
-        const btnAddX = document.getElementById('btn-add-x');
+        
+        // On récupère les boutons avec les NOUVEAUX IDs uniques
+        const btnSubC = document.getElementById('btn-solve-sub-c');
+        const btnAddC = document.getElementById('btn-solve-add-c');
+        const btnSubX = document.getElementById('btn-solve-sub-x');
+        const btnAddX = document.getElementById('btn-solve-add-x'); // Plus de conflit ici !
 
         const getSolverValue = () => parseInt(inpSolver.value) || 1;
 
-        // On définit des callbacks génériques pour éviter de répéter
-        const triggerAction = (type, operation) => { // type: 'known'/'X', op: 'add'/'sub'
+        const triggerAction = (type, operation) => { 
             if (callbacks.onSolverAction) {
                 callbacks.onSolverAction({
                     type: type,
@@ -99,11 +87,11 @@ export class UIManager {
             }
         };
 
-        // Câblage
-        btnSubC.addEventListener('click', () => triggerAction('known', 'sub'));
-        btnAddC.addEventListener('click', () => triggerAction('known', 'add'));
-        btnSubX.addEventListener('click', () => triggerAction('X', 'sub'));
-        btnAddX.addEventListener('click', () => triggerAction('X', 'add'));
+        // On vérifie que les boutons existent avant d'ajouter l'écouteur (sécurité)
+        if(btnSubC) btnSubC.addEventListener('click', () => triggerAction('known', 'sub'));
+        if(btnAddC) btnAddC.addEventListener('click', () => triggerAction('known', 'add'));
+        if(btnSubX) btnSubX.addEventListener('click', () => triggerAction('X', 'sub'));
+        if(btnAddX) btnAddX.addEventListener('click', () => triggerAction('X', 'add'));
     }
 
     updateEquation(eqString) {
@@ -111,13 +99,11 @@ export class UIManager {
     }
 
     updateState(status) {
-        // status vient de EquationEngine : 'EQUILIBRIUM', 'LEFT_HEAVY', etc.
         const map = {
-            'EQUILIBRIUM': { text: '⚖️ ÉQUILIBRE', color: '#2ecc71' }, // Vert
-            'LEFT_HEAVY': { text: '⬅️ GAUCHE TROP LOURD', color: '#e74c3c' }, // Rouge
+            'EQUILIBRIUM': { text: '⚖️ ÉQUILIBRE', color: '#2ecc71' },
+            'LEFT_HEAVY': { text: '⬅️ GAUCHE TROP LOURD', color: '#e74c3c' },
             'RIGHT_HEAVY': { text: 'DROITE TROP LOURD ➡️', color: '#e74c3c' }
         };
-
         const current = map[status] || { text: '...', color: '#fff' };
         this.stateEl.innerText = current.text;
         this.stateEl.style.color = current.color;
