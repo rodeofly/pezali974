@@ -10,12 +10,8 @@ export class InteractionManager {
         this.logicEngine = logicEngine;
         
         this.divisionMode = 'atomic'; 
-
-        // Variables pour gérer l'état du Drag
         this.draggedBody = null;
         this.dragStartTime = 0;
-        
-        // Période de grâce (ms) : Temps de sécurité au début du clic
         this.gracePeriod = 150; 
     }
 
@@ -29,7 +25,6 @@ export class InteractionManager {
         this.divisionMode = mode;
     }
 
-    // --- 1. SUIVI DE LA SOURIS ---
     setupDragTracking() {
         Matter.Events.on(this.physicsWorld.mouseConstraint, 'startdrag', (event) => {
             this.draggedBody = event.body;
@@ -42,7 +37,6 @@ export class InteractionManager {
         });
     }
 
-    // --- 2. GESTION DES COLLISIONS ---
     setupCollisions() {
         Matter.Events.on(this.engine, 'collisionActive', (event) => {
             const pairs = event.pairs;
@@ -52,36 +46,22 @@ export class InteractionManager {
                 const bodyA = pair.bodyA;
                 const bodyB = pair.bodyB;
 
-                // Validations de base
                 if (bodyA.label !== 'weight' || bodyB.label !== 'weight') return;
                 if (!bodyA.logicData || !bodyB.logicData) return;
-                
-                // Vérif Type (X avec X, Constante avec Constante)
                 if (bodyA.logicData.type !== bodyB.logicData.type) return;
 
-                // --- CHANGEMENT ICI : ON VÉRIFIE D'ABORD SI L'UTILISATEUR INTERAGIT ---
-                // Si aucun des deux objets n'est tenu par la souris, on ne fait RIEN.
-                // Les objets vont juste se cogner physiquement (Matter.js gère ça).
                 const isInteracting = (bodyA === this.draggedBody || bodyB === this.draggedBody);
-                
                 if (!isInteracting) return; 
 
-                // --- SÉCURITÉ "GRACE PERIOD" ---
-                // Même si on drag, on attend quelques ms pour éviter les accidents au clic
                 if (now - this.dragStartTime < this.gracePeriod) return;
-
-                // --- MAINTENANT ON APPLIQUE LA LOGIQUE ---
 
                 // CAS A : ANNIHILATION (+ et -)
                 if (Math.sign(bodyA.logicData.value) !== Math.sign(bodyB.logicData.value)) {
                     this.performAnnihilation(bodyA, bodyB);
                 }
-                // CAS B : FUSION (+ et +) ou (- et -)
+                // CAS B : FUSION (+/+ OU -/-)
                 else {
-                    // Règle : Pas de fusion entre deux négatifs
-                    if (bodyA.logicData.value < 0 && bodyB.logicData.value < 0) return;
-
-                    // Fusion standard
+                    // J'AI SUPPRIMÉ LE BLOCAGE ICI : Les négatifs peuvent maintenant fusionner !
                     this.performFusion(bodyA, bodyB);
                 }
             });
@@ -91,7 +71,6 @@ export class InteractionManager {
     performAnnihilation(bodyA, bodyB) {
         if (bodyA.isRemoved || bodyB.isRemoved) return; 
 
-        // UI Update
         if (bodyA.lastZone) this.logicEngine.updateWeight(bodyA.lastZone, bodyA.logicData.type, bodyA.logicData.value, 'remove');
         if (bodyB.lastZone) this.logicEngine.updateWeight(bodyB.lastZone, bodyB.logicData.type, bodyB.logicData.value, 'remove');
 
@@ -100,10 +79,9 @@ export class InteractionManager {
         const newX = (bodyA.position.x + bodyB.position.x) / 2;
         const newY = (bodyA.position.y + bodyB.position.y) / 2;
 
-        console.log(`💥 ANNIHILATION MANUELLE : ${newVal}`);
+        console.log(`💥 ANNIHILATION : ${newVal}`);
 
-        bodyA.isRemoved = true; 
-        bodyB.isRemoved = true;
+        bodyA.isRemoved = true; bodyB.isRemoved = true;
         Matter.World.remove(this.engine.world, [bodyA, bodyB]);
 
         if (newVal !== 0) {
@@ -111,8 +89,6 @@ export class InteractionManager {
             Matter.Body.setVelocity(newBody, { x: 0, y: -1 });
             newBody.lastZone = null; 
             Matter.World.add(this.engine.world, newBody);
-            
-            // Astuce : Si le résultat n'est pas 0, on transfère le drag sur le survivant
             if (this.draggedBody) this.draggedBody = newBody;
         }
     }
@@ -128,10 +104,9 @@ export class InteractionManager {
         const type = bodyA.logicData.type;
         const newVal = bodyA.logicData.value + bodyB.logicData.value;
 
-        console.log(`✨ FUSION MANUELLE : ${newVal}`);
+        console.log(`✨ FUSION : ${newVal}`);
 
-        bodyA.isRemoved = true;
-        bodyB.isRemoved = true;
+        bodyA.isRemoved = true; bodyB.isRemoved = true;
         Matter.World.remove(this.engine.world, [bodyA, bodyB]);
 
         const newBody = this.weightSystem.create(type, newX, newY, newVal);
@@ -141,33 +116,24 @@ export class InteractionManager {
         if (this.draggedBody) this.draggedBody = newBody; 
     }
 
-    // --- DIVISION (Double-clic) ---
     setupClicks() {
         this.render.canvas.addEventListener('dblclick', (event) => {
             const rect = this.render.canvas.getBoundingClientRect();
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
-
             const bodies = Matter.Composite.allBodies(this.engine.world);
             const clickedBodies = Matter.Query.point(bodies, { x, y });
 
-            clickedBodies.forEach(body => {
-                if (body.label === 'weight') {
-                    this.performDivision(body);
-                }
-            });
+            clickedBodies.forEach(body => { if (body.label === 'weight') this.performDivision(body); });
         });
     }
 
     performDivision(body) {
         const val = body.logicData.value;
         const absVal = Math.abs(val);
-
         if (absVal <= 1) return;
 
-        if (body.lastZone) {
-            this.logicEngine.updateWeight(body.lastZone, body.logicData.type, val, 'remove');
-        }
+        if (body.lastZone) this.logicEngine.updateWeight(body.lastZone, body.logicData.type, val, 'remove');
 
         let parts = [];
         const sign = Math.sign(val);

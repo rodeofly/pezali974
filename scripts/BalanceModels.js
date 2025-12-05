@@ -10,11 +10,14 @@ export const BalanceModels = {
         const chainLength = C.BALANCE.CHAIN_LENGTH;    
         const trayWidth = C.BALANCE.TRAY_WIDTH;      
         
-        // Pied
-        const standBase = Bodies.rectangle(x, height - 20, 200, 20, { 
+        // --- MODIFICATION : POTENCE PLAFOND ---
+        // Base accrochée au plafond (y=0)
+        const standBase = Bodies.rectangle(x, 0, 200, 40, { 
             isStatic: true, isSensor: true, render: { fillStyle: C.COLORS.WOOD_DARK } 
         });
-        const standPole = Bodies.rectangle(x, (height + beamY)/2, 20, height - beamY, { 
+        
+        // Tige qui descend jusqu'au fléau
+        const standPole = Bodies.rectangle(x, beamY / 2, 20, beamY, { 
             isStatic: true, isSensor: true, render: { fillStyle: C.COLORS.WOOD_DARK } 
         });
 
@@ -24,7 +27,6 @@ export const BalanceModels = {
             frictionAir: C.PHYSICS.FRICTION_AIR,
             mass: C.PHYSICS.BEAM_MASS,
             inertia: Infinity,
-            // Ne touche que le mécanisme (pas les poids)
             collisionFilter: {
                 category: C.CATEGORIES.BALANCE_MECA,
                 mask: C.CATEGORIES.DEFAULT | C.CATEGORIES.BALANCE_MECA 
@@ -32,20 +34,20 @@ export const BalanceModels = {
             render: { fillStyle: '#bfa378', strokeStyle: '#8e7cc3', lineWidth: 1 }
         });
 
+        // Pivot
         const pivot = Constraint.create({
             bodyA: beam, pointB: { x: x, y: beamY },
             stiffness: 1, length: 0,
             render: { visible: true, lineWidth: 6, strokeStyle: C.COLORS.GOLD_LIGHT }
         });
 
-        // --- PLATEAUX SOLIDES ---
+        // --- PLATEAUX SOLIDES (Reste inchangé sauf trayWidth qui vient de Constants) ---
         const createJusticeTray = (sideFactor) => {
             const anchorX = (beamWidth / 2 - 5) * sideFactor;
             const startX = x + anchorX;
             const startY = beamY + chainLength;
             const wallH = C.BALANCE.TRAY_WALL_HEIGHT; 
             
-            // Filtre : Touche TOUT (Poids inclus)
             const solidFilter = {
                 category: C.CATEGORIES.TRAYS,
                 mask: C.CATEGORIES.DEFAULT | C.CATEGORIES.WEIGHTS | C.CATEGORIES.BALANCE_MECA
