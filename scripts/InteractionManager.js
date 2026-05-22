@@ -8,37 +8,137 @@ export class InteractionManager {
         this.physicsWorld = physicsWorld;
         this.render = physicsWorld.render; 
         this.logicEngine = logicEngine;
-        
-        this.divisionMode = 'atomic'; 
+
         this.draggedBody = null;
         this.dragStartTime = 0;
-        this.gracePeriod = 150; 
+        this.gracePeriod = 150;
+
+        // Délai minimum entre deux fusions/annihilations : évite que 15 billes
+        // s'agglutinent en une fraction de seconde quand on glisse à travers une pile.
+        this.lastMergeTime = 0;
+        this.mergeCooldown = 400;
+
+        this.hammerMode = false;
+        this.fusionEnabled = true; // agrégation par glisser (active en mode +)
+        this.onWeightDestroyed = null; // callback(zone, logicData) pour la zone « détruits »
+
+        // Mode − : le jumeau du côté opposé suit en miroir (axe vertical centré).
+        this.subMode = false;
+        this.mirrorBody = null;
+        this.mirrorHome = null;
+        this.onSymmetricRemove = null; // callback(logicData, symmetric)
+    }
+
+    setFusionEnabled(on) { this.fusionEnabled = on; }
+
+    setSubtractMode(on) {
+        this.subMode = on;
+        if (!on) {
+            this.physicsWorld.ignoredBody = null;
+            this.mirrorBody = null;
+            this.mirrorHome = null;
+        }
+    }
+
+    /** Au début d'un drag en mode −, repère le jumeau identique du côté opposé. */
+    beginMirror(body) {
+        this.mirrorBody = null;
+        this.mirrorHome = null;
+        if (!body || !body.logicData) return;
+        const zone = this.physicsWorld.detectZone(body);
+        const opp = zone === 'left' ? 'right' : (zone === 'right' ? 'left' : null);
+        if (!opp) return;
+        const bodies = Matter.Composite.allBodies(this.engine.world);
+        const twin = bodies.find(o => o !== body && o.label === 'weight' && o.logicData
+            && o.logicData.type === body.logicData.type
+            && o.logicData.value === body.logicData.value
+            && this.physicsWorld.detectZone(o) === opp);
+        if (twin) {
+            this.mirrorBody = twin;
+            this.mirrorHome = { x: twin.position.x, y: twin.position.y };
+            this.physicsWorld.ignoredBody = twin; // ne pèse pas pendant qu'il suit
+        }
+    }
+
+    /** Fin du drag en mode − : déposé dans la corbeille → retire les deux ; sinon, on remet le jumeau. */
+    endMirror() {
+        const dragged = this.draggedBody;
+        const inTrash = dragged && this.physicsWorld.isOverTrash(dragged.position);
+        if (inTrash) {
+            const data = dragged.logicData ? { ...dragged.logicData } : null;
+            [dragged, this.mirrorBody].forEach(b => {
+                if (!b || b.isRemoved) return;
+                if (b.lastZone) this.logicEngine.updateWeight(b.lastZone, b.logicData.type, b.logicData.value, 'remove');
+                b.isRemoved = true;
+                Matter.World.remove(this.engine.world, b);
+            });
+            if (this.onSymmetricRemove && data) this.onSymmetricRemove(data, !!this.mirrorBody);
+            if (this.physicsWorld.onUpdateUI) this.physicsWorld.onUpdateUI();
+        } else if (this.mirrorBody && this.mirrorHome) {
+            // pas déposé : le jumeau retourne à sa place
+            Matter.Body.setPosition(this.mirrorBody, this.mirrorHome);
+            Matter.Body.setVelocity(this.mirrorBody, { x: 0, y: 0 });
+        }
+        this.physicsWorld.ignoredBody = null;
+        this.mirrorBody = null;
+        this.mirrorHome = null;
+    }
+
+    setHammerMode(on) {
+        this.hammerMode = on;
+        // En mode marteau, on coupe la prise à la souris (le clic détruit).
+        this.physicsWorld.setMouseEnabled(!on);
+        if (this.render && this.render.canvas) {
+            this.render.canvas.style.cursor = on ? 'crosshair' : 'default';
+        }
     }
 
     init() {
         this.setupDragTracking(); 
         this.setupCollisions();   
-        this.setupClicks();       
-    }
-
-    setDivisionMode(mode) {
-        this.divisionMode = mode;
+        this.setupClicks();
     }
 
     setupDragTracking() {
         Matter.Events.on(this.physicsWorld.mouseConstraint, 'startdrag', (event) => {
             this.draggedBody = event.body;
             this.dragStartTime = Date.now();
+            this._dragStart = { x: event.body.position.x, y: event.body.position.y };
+            // pèse encore tant qu'on n'a pas vraiment bougé (un clic ne le retire pas)
+            this.physicsWorld.weightlessBody = null;
+            if (this.subMode) this.beginMirror(event.body);
         });
 
         Matter.Events.on(this.physicsWorld.mouseConstraint, 'enddrag', () => {
+            if (this.subMode) this.endMirror();
             this.draggedBody = null;
             this.dragStartTime = 0;
+            this._dragStart = null;
+            this.physicsWorld.weightlessBody = null;
+        });
+
+        Matter.Events.on(this.engine, 'beforeUpdate', () => {
+            // Un objet ne perd son poids qu'au début d'un VRAI drag (> 8 px), pas au clic.
+            if (this.draggedBody && this._dragStart && this.physicsWorld.weightlessBody !== this.draggedBody) {
+                const dx = this.draggedBody.position.x - this._dragStart.x;
+                const dy = this.draggedBody.position.y - this._dragStart.y;
+                if (dx * dx + dy * dy > 64) this.physicsWorld.weightlessBody = this.draggedBody;
+            }
+            // Le jumeau suit en miroir (symétrie d'axe vertical centré).
+            if (this.subMode && this.draggedBody && this.mirrorBody) {
+                Matter.Body.setPosition(this.mirrorBody, {
+                    x: this.physicsWorld.width - this.draggedBody.position.x,
+                    y: this.draggedBody.position.y
+                });
+                Matter.Body.setVelocity(this.mirrorBody, { x: 0, y: 0 });
+            }
         });
     }
 
     setupCollisions() {
         Matter.Events.on(this.engine, 'collisionActive', (event) => {
+            if (!this.fusionEnabled) return; // pas d'agrégation hors mode +
+
             const pairs = event.pairs;
             const now = Date.now();
 
@@ -51,18 +151,21 @@ export class InteractionManager {
                 if (bodyA.logicData.type !== bodyB.logicData.type) return;
 
                 const isInteracting = (bodyA === this.draggedBody || bodyB === this.draggedBody);
-                if (!isInteracting) return; 
+                if (!isInteracting) return;
 
                 if (now - this.dragStartTime < this.gracePeriod) return;
+                // Une seule combinaison à la fois : on respecte le délai de refroidissement.
+                if (now - this.lastMergeTime < this.mergeCooldown) return;
 
                 // CAS A : ANNIHILATION (+ et -)
                 if (Math.sign(bodyA.logicData.value) !== Math.sign(bodyB.logicData.value)) {
                     this.performAnnihilation(bodyA, bodyB);
+                    this.lastMergeTime = now;
                 }
                 // CAS B : FUSION (+/+ OU -/-)
                 else {
-                    // J'AI SUPPRIMÉ LE BLOCAGE ICI : Les négatifs peuvent maintenant fusionner !
                     this.performFusion(bodyA, bodyB);
+                    this.lastMergeTime = now;
                 }
             });
         });
@@ -79,15 +182,13 @@ export class InteractionManager {
         const newX = (bodyA.position.x + bodyB.position.x) / 2;
         const newY = (bodyA.position.y + bodyB.position.y) / 2;
 
-        console.log(`💥 ANNIHILATION : ${newVal}`);
-
         bodyA.isRemoved = true; bodyB.isRemoved = true;
         Matter.World.remove(this.engine.world, [bodyA, bodyB]);
 
         if (newVal !== 0) {
             const newBody = this.weightSystem.create(type, newX, newY, newVal);
-            Matter.Body.setVelocity(newBody, { x: 0, y: -1 });
-            newBody.lastZone = null; 
+            Matter.Body.setVelocity(newBody, { x: 0, y: 0 });
+            newBody.lastZone = null;
             Matter.World.add(this.engine.world, newBody);
             if (this.draggedBody) this.draggedBody = newBody;
         }
@@ -104,8 +205,6 @@ export class InteractionManager {
         const type = bodyA.logicData.type;
         const newVal = bodyA.logicData.value + bodyB.logicData.value;
 
-        console.log(`✨ FUSION : ${newVal}`);
-
         bodyA.isRemoved = true; bodyB.isRemoved = true;
         Matter.World.remove(this.engine.world, [bodyA, bodyB]);
 
@@ -117,43 +216,108 @@ export class InteractionManager {
     }
 
     setupClicks() {
-        this.render.canvas.addEventListener('dblclick', (event) => {
+        const pointToWeights = (event) => {
             const rect = this.render.canvas.getBoundingClientRect();
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
             const bodies = Matter.Composite.allBodies(this.engine.world);
-            const clickedBodies = Matter.Query.point(bodies, { x, y });
+            return Matter.Query.point(bodies, { x, y }).filter(b => b.label === 'weight');
+        };
 
-            clickedBodies.forEach(body => { if (body.label === 'weight') this.performDivision(body); });
+        // Mode marteau : un clic découpe le poids visé (cf. hammerSplit).
+        this.render.canvas.addEventListener('mousedown', (event) => {
+            if (!this.hammerMode) return;
+            const weights = pointToWeights(event);
+            if (weights.length) this.hammerSplit(weights[0]);
+        });
+
+        // Double-clic : division (uniquement hors mode marteau).
+        this.render.canvas.addEventListener('dblclick', (event) => {
+            if (this.hammerMode) return;
+            pointToWeights(event).forEach(body => this.performDivision(body));
         });
     }
 
-    performDivision(body) {
-        const val = body.logicData.value;
-        const absVal = Math.abs(val);
-        if (absVal <= 1) return;
+    /** Détruit un poids et le consigne dans la zone « détruits » de son côté. */
+    destroyWeight(body) {
+        if (body.isRemoved || !body.logicData) return;
+        body.isRemoved = true;
 
-        if (body.lastZone) this.logicEngine.updateWeight(body.lastZone, body.logicData.type, val, 'remove');
+        const zone = this.physicsWorld.detectZone(body)
+            || (body.position.x < this.physicsWorld.width / 2 ? 'left' : 'right');
 
-        let parts = [];
-        const sign = Math.sign(val);
-        
-        if (this.divisionMode === 'atomic') {
-            for(let i=0; i<absVal; i++) parts.push(1 * sign);
-        } 
-        else if (this.divisionMode === 'binary') {
-            const half = Math.floor(absVal / 2);
-            parts.push(half * sign, (absVal - half) * sign);
+        if (body.lastZone) {
+            this.logicEngine.updateWeight(body.lastZone, body.logicData.type, body.logicData.value, 'remove');
         }
-
         Matter.World.remove(this.engine.world, body);
 
-        parts.forEach((partVal) => {
-            const offsetX = (Math.random() - 0.5) * 40;
-            const offsetY = (Math.random() - 0.5) * 40;
-            const newBody = this.weightSystem.create(body.logicData.type, body.position.x + offsetX, body.position.y + offsetY, partVal);
-            Matter.Body.setVelocity(newBody, { x: offsetX * 0.1, y: -3 }); 
-            Matter.World.add(this.engine.world, newBody);
+        if (this.onWeightDestroyed) this.onWeightDestroyed(zone, { ...body.logicData });
+        if (this.physicsWorld.onUpdateUI) this.physicsWorld.onUpdateUI();
+    }
+
+    /**
+     * Coup de marteau « intelligent » : découpe le poids visé pour faire
+     * apparaître la valeur présente sur l'AUTRE plateau (même espèce), afin de
+     * pouvoir l'annuler ensuite. Si cette valeur est absente ou que le bloc est
+     * trop petit pour la contenir → découpe aléatoire en deux morceaux.
+     * Un poids unitaire (±1), indivisible, est simplement détruit.
+     */
+    hammerSplit(body) {
+        if (body.isRemoved || !body.logicData) return;
+        // Un poids unitaire (±1) est indivisible → on le détruit.
+        if (Math.abs(body.logicData.value) <= 1) { this.destroyWeight(body); return; }
+        this.spawnParts(body, this.computeSplitParts(body));
+    }
+
+    /**
+     * Découpe en EXACTEMENT 2 morceaux (X comme constantes) : un morceau égal à
+     * la valeur du même type sur l'AUTRE plateau (pour pouvoir l'annuler), et le
+     * reste. Si cette valeur est absente ou trop grande (« on n'a pas cassé le
+     * bon bloc »), coupe en deux au hasard.
+     */
+    computeSplitParts(body) {
+        const val = body.logicData.value;
+        const absVal = Math.abs(val);
+        const sign = Math.sign(val);
+        const type = body.logicData.type;
+
+        const zone = this.physicsWorld.detectZone(body);
+        let pieceAbs = 0;
+        if (zone) {
+            const opposite = zone === 'left' ? 'right' : 'left';
+            pieceAbs = Math.abs(this.logicEngine.sumSideByType(opposite, type));
+        }
+
+        if (pieceAbs > 0 && pieceAbs < absVal) {
+            return [pieceAbs * sign, (absVal - pieceAbs) * sign];
+        }
+        const a = 1 + Math.floor(Math.random() * (absVal - 1));
+        return [a * sign, (absVal - a) * sign];
+    }
+
+    /** Remplace un poids par plusieurs morceaux (dont la somme = valeur d'origine). */
+    spawnParts(body, parts) {
+        const type = body.logicData.type;
+        const { x, y } = body.position;
+
+        if (body.lastZone) this.logicEngine.updateWeight(body.lastZone, type, body.logicData.value, 'remove');
+        body.isRemoved = true;
+        Matter.World.remove(this.engine.world, body);
+
+        parts.forEach(partVal => {
+            const offX = (Math.random() - 0.5) * 40;
+            const offY = (Math.random() - 0.5) * 30;
+            const nb = this.weightSystem.create(type, x + offX, y + offY, partVal);
+            Matter.Body.setVelocity(nb, { x: 0, y: -1 });
+            Matter.World.add(this.engine.world, nb);
         });
+        if (this.physicsWorld.onUpdateUI) this.physicsWorld.onUpdateUI();
+    }
+
+    performDivision(body) {
+        if (body.isRemoved || !body.logicData) return;
+        if (Math.abs(body.logicData.value) <= 1) return;
+        // Même découpe que le marteau : exactement 2 morceaux (valeur d'en face + reste).
+        this.spawnParts(body, this.computeSplitParts(body));
     }
 }

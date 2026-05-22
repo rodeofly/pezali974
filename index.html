@@ -2,8 +2,10 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Balance & Équations</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="EquaMotion974 — simulateur de balance interactif pour apprendre à résoudre des équations linéaires par la physique.">
+    <meta name="theme-color" content="#1e1e24">
+    <title>EquaMotion974 — Balance & Équations</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,74 +24,115 @@
     <div id="settings-panel" class="panel hidden">
         <h2>🛠️ Configuration</h2>
 
-        <div class="setting-group" style="background:#222; padding:10px; border-radius:8px;">
-            <label>Entrée Manuelle :</label>
-            <div style="display:flex; align-items:center; gap:5px; margin-top:5px;">
-                <input type="text" id="inp-custom-left" placeholder="3x + 2" style="width:40%; padding:5px; text-align:right;">
-                <span style="font-weight:bold;">=</span>
-                <input type="text" id="inp-custom-right" placeholder="14" style="width:40%; padding:5px;">
+        <div class="setting-group setting-card">
+            <label class="setting-title">✍️ Entrée manuelle d'une équation</label>
+            <div class="custom-eq-row">
+                <input type="text" id="inp-custom-left" placeholder="3x + 2">
+                <span class="eq-sep">=</span>
+                <input type="text" id="inp-custom-right" placeholder="14">
             </div>
-            <button id="btn-load-custom" style="width:100%; margin-top:5px; background:#2980b9;">Charger l'équation</button>
+            <button id="btn-load-custom" class="btn-primary">Charger cette équation</button>
         </div>
-        
-        <hr style="border: 0; border-top: 1px solid #444; margin: 15px 0;">
-        
+
+        <hr class="settings-sep">
+        <p class="settings-section">Génération aléatoire</p>
+
         <div class="setting-group">
-            <label for="division-mode-select">Mode de Division</label>
-            <select id="division-mode-select">
-                <option value="atomic">Atomique (1+1+1...)</option>
-                <option value="binary">Moitié / Moitié</option>
-            </select>
+            <label class="checkbox-label">
+                <input type="checkbox" id="chk-fixed-x"> Fixer la valeur de <i>x</i>
+            </label>
+            <label class="slider-label">
+                <span id="lbl-range-title">Intervalle de <i>x</i> :</span>
+                <span id="lbl-max-x" class="val-badge red">[−10, +10]</span>
+            </label>
+            <input type="range" id="inp-max-x" min="1" max="20" value="10" step="1">
         </div>
 
         <div class="setting-group">
-             <label style="display:inline-flex; align-items:center; gap:10px; cursor:pointer;">
-                <input type="checkbox" id="chk-fixed-x"> Fixer la Solution X ?
-             </label>
-             
-             <br><br>
-             
-             <label>
-                 <span id="lbl-range-title">Intervalle de génération : </span>
-                 <span id="lbl-max-x" style="color:#e74c3c; font-weight:bold;">[-10, 10]</span>
-             </label>
-             
-             <input type="range" id="inp-max-x" min="1" max="20" value="10" step="1">
+            <label class="slider-label">Coefficient max de <i>x</i> : <span id="lbl-max-coeff" class="val-badge red">5</span></label>
+            <input type="range" id="inp-max-coeff" min="2" max="12" value="5" step="1">
         </div>
 
         <div class="setting-group">
-            <label>Complexité (Constantes) : <span id="lbl-max-c" style="color:#3498db; font-weight:bold;">20</span></label>
+            <label class="slider-label">Constante max : <span id="lbl-max-c" class="val-badge blue">20</span></label>
             <input type="range" id="inp-max-c" min="5" max="50" value="20" step="1">
         </div>
 
         <button id="close-settings">Fermer</button>
     </div>
     
-    <button id="btn-settings">⚙️</button>
+    <div id="help-panel" class="panel hidden">
+        <h2>📖 Comment jouer ?</h2>
+        <p class="help-intro">Le but : <b>isoler l'inconnue <i>x</i></b> en gardant la balance en équilibre, comme dans une vraie équation.</p>
+        <ul class="help-list">
+            <li><span class="help-ico">🟥</span> Les <b>carrés</b> rouges sont les inconnues (<i>x</i>), leur masse est secrète.</li>
+            <li><span class="help-ico">🔵</span> Les <b>cercles</b> bleus sont les constantes (des « 1 »).</li>
+            <li><span class="help-ico">➕</span> <b>Mode +</b> (par défaut) : clique un poids dans la <b>banque</b> pour l'ajouter <b>des deux côtés</b>. Tu peux aussi <b>agréger</b> (glisser un poids sur un autre).</li>
+            <li><span class="help-ico">➖</span> <b>Mode −</b> : le bouton <code>−</code> remplace la banque par une <b>corbeille</b>. Dépose un poids dedans pour le retirer ; <b>deux identiques</b> = retrait des deux côtés.</li>
+            <li><span class="help-ico">➗</span> <b>Pouvoir ÷</b> : ouvre une <b>échelle</b> ; glisse vers la droite pour choisir le diviseur (2, 3, 4…) — chaque poids se découpe en secteurs — puis relâche pour diviser les deux côtés. <code>×</code> arrive bientôt.</li>
+            <li><span class="help-ico">🏦</span> La <b>Banque</b> (en haut à gauche) : clique un poids pour l'ajouter, puis glisse-le dans un bac.</li>
+            <li><span class="help-ico">🧲</span> <b>Glisse</b> un poids sur un autre du même type pour les <b>combiner</b> (1 + 1 = 2…).</li>
+            <li><span class="help-ico">🌧️</span> Un poids <b>négatif</b> glissé sur un positif les <b>annihile</b> (antimatière).</li>
+            <li><span class="help-ico">✂️</span> <b>Double-clique</b> un poids pour le diviser.</li>
+            <li><span class="help-ico">🔨</span> Le <b>marteau</b> découpe un poids pour faire apparaître la valeur présente sur l'autre plateau (sinon, découpe au hasard).</li>
+            <li><span class="help-ico">🎉</span> Quand un côté ne contient plus que <i>x</i> et l'autre un nombre, c'est gagné !</li>
+        </ul>
+        <button id="close-help">J'ai compris</button>
+    </div>
+
+    <div id="floating-actions">
+        <button id="btn-fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button>
+        <button id="btn-help" title="Aide" aria-label="Aide">❔</button>
+        <button id="btn-settings" title="Configuration" aria-label="Configuration">⚙️</button>
+    </div>
+
+    <div id="trash-left" class="trash-zone">
+        <div class="trash-title">🗑️ Détruits<br><span>(gauche)</span></div>
+        <div class="trash-items"></div>
+    </div>
+    <div id="trash-right" class="trash-zone">
+        <div class="trash-title">🗑️ Détruits<br><span>(droite)</span></div>
+        <div class="trash-items"></div>
+    </div>
+
     <div id="scene-container"></div>
 
+    <!-- Slogan qui « pop » lors d'un usage éclairé d'un super-pouvoir -->
+    <div id="slogan"></div>
+
+    <!-- Mode + : banque dynamique. Repliée par défaut (icône +) ; clic = déplie. -->
+    <div id="power-bank">
+        <div class="power-bank-head">
+            <span class="power-bank-hint">Clique une puce pour ajouter le même poids des deux côtés</span>
+        </div>
+        <div class="power-bank-items"></div>
+    </div>
+
+    <!-- Mode − : la corbeille remplace la banque. Déposer un poids dedans = le retirer. -->
+    <div id="center-trash" class="hidden">
+        <span class="power-badge minus" aria-hidden="true">−</span>
+        <span class="trash-ico">🗑️</span>
+        <span class="trash-label">Dépose un poids ici : il est retiré, ainsi que son jumeau de l'autre côté</span>
+    </div>
+
+    <!-- Mode ÷ : échelle de division. Glisse vers la droite pour choisir le diviseur ; relâche pour appliquer. -->
+    <div id="division-scale" class="hidden">
+        <div class="div-scale-head">
+            <span class="power-badge div" aria-hidden="true">÷</span>
+            <span class="div-scale-value">Diviser par <b id="div-n">1</b> · glisse puis relâche</span>
+        </div>
+        <input type="range" id="div-slider" min="1" max="8" value="1" step="1">
+        <div class="div-scale-ticks">
+            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span>
+        </div>
+    </div>
+
     <div id="solver-bar">
-        <div class="solver-group" style="margin-right: 15px; border-right: 1px solid #555; padding-right: 15px;">
-            <label class="switch-label">
-                <input type="checkbox" id="chk-instant-mode">
-                <span class="slider-round"></span>
-            </label>
-            <span class="solver-label" style="font-size:0.7rem; margin-left:5px;">Mode<br>Rapide</span>
-        </div>
-        <div class="solver-group">
-            <span class="solver-label">Quantité :</span>
-            <input type="number" id="solver-input" value="1" min="1" max="50">
-        </div>
-        <div class="solver-actions">
-            <div class="action-pair">
-                <button class="btn-solve minus" id="btn-solve-sub-c">− ●</button>
-                <button class="btn-solve plus" id="btn-solve-add-c">+ ●</button>
-            </div>
-            <div class="separator"></div>
-            <div class="action-pair">
-                <button class="btn-solve minus" id="btn-solve-sub-x">− X</button>
-                <button class="btn-solve plus" id="btn-solve-add-x">+ X</button>
-            </div>
+        <div class="solver-actions" id="powers">
+            <button class="btn-power" id="power-toggle-bar" data-power="toggle" title="Basculer entre + (banque) et − (corbeille)">−</button>
+            <button class="btn-power" id="power-mul" data-power="mul" title="Pouvoir × (à venir)">×</button>
+            <button class="btn-power" id="power-div" data-power="div" title="Pouvoir ÷ : échelle de division (glisse pour choisir, relâche pour diviser)">÷</button>
+            <button class="btn-power" id="btn-hammer" data-power="hammer" aria-pressed="false" title="Marteau : découper un poids">🔨</button>
         </div>
     </div>
     <script type="module" src="./scripts/main.js"></script>

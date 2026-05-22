@@ -16,33 +16,39 @@ export const C = {
     CATEGORIES: {
         DEFAULT: 0x0001,
         BALANCE_MECA: 0x0002,
-        WEIGHTS: 0x0004,
-        TRAYS: 0x0008
+        WEIGHTS: 0x0004,        // poids libre (attrapable à la souris)
+        TRAYS: 0x0008,
+        WEIGHTS_LOCKED: 0x0010  // poids posé dans un bac : il pèse, mais n'est plus attrapable
     },
 
-    // --- DIMENSIONS ---
+    // --- DIMENSIONS DES BACS ---
     BALANCE: {
-        BEAM_WIDTH: 700,
-        BEAM_Y: 140,
-        CHAIN_LENGTH: 280,
-        TRAY_WIDTH: 300,
-        TRAY_WALL_HEIGHT: 100,
-        TRAY_OFFSET: 320
+        TRAY_WIDTH: 280,        // largeur d'un bac
+        TRAY_WALL_HEIGHT: 130,  // hauteur des parois
+        TRAY_OFFSET: 320,       // distance horizontale depuis le centre
+        MAX_TRAVEL: 90          // déplacement vertical max d'un bac (position de repos calculée au centre de l'écran)
     },
 
-    // --- PHYSIQUE ---
+    // --- MOUVEMENT DES BACS ---
     PHYSICS: {
-        BEAM_MASS: 20,
-        TRAY_MASS: 5,
-        FRICTION_AIR: 0.5,
-        MAX_ANGLE: 0.5
+        SENSITIVITY: 5,    // pixels de déplacement par unité de déséquilibre (avant plafonnement)
+        EASING: 0.08,      // lissage du mouvement vertical (0 = figé, 1 = instantané)
+        SETTLE_SPEED: 2.0  // un poids ne « pèse » qu'une fois posé : vitesse sous ce seuil
+    },
+
+    // --- PROPRIÉTÉS DES POIDS (objets massifs et stables) ---
+    WEIGHT: {
+        RESTITUTION: 0,     // aucun rebond
+        FRICTION: 1,        // forte adhérence
+        FRICTION_AIR: 0.05, // amortissement de l'air (calme les déplacements)
+        DENSITY: 0.02       // objets « lourds » : difficiles à projeter
     },
 
     // --- SPAWN ---
     SPAWN: {
-        DROP_HEIGHT: -150,
-        DELAY_BETWEEN_DROPS: 300,
-        ZONE_CHECK_INTERVAL: 5 
+        DROP_HEIGHT: 110,         // hauteur d'apparition en mode pluie (juste au-dessus des bacs)
+        DELAY_BETWEEN_DROPS: 250,
+        ZONE_CHECK_INTERVAL: 5
     },
 
     // --- NOUVEAU : STYLE ---

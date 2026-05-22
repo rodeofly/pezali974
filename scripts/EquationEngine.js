@@ -63,24 +63,22 @@ export class EquationEngine {
       const deltaConst = d - b;
 
       if (deltaCoeff !== 0) {
-          // Cas normal : Solution unique
-          // On arrondit pour rester dans le monde des entiers du jeu, 
-          // mais mathématiquement on devrait garder les flottants.
-          this.state.xValue = Math.round(deltaConst / deltaCoeff);
-          console.log(`[EquationEngine] Solution calculée : x = ${this.state.xValue}`);
-      } else {
-          // Cas parallèle (a = c)
-          if (deltaConst === 0) {
-              // 2x + 5 = 2x + 5 (Toujours vrai). X peut être n'importe quoi.
-              this.state.xValue = 10; 
-              console.log(`[EquationEngine] Identité : x arbitraire mis à 10`);
-          } else {
-              // 2x + 5 = 2x + 10 (Impossible). 
-              // OPTION B : On fixe une valeur arbitraire, la balance penchera.
-              this.state.xValue = 10;
-              console.log(`[EquationEngine] Impossible : La balance penchera.`);
-          }
+          // Cas normal : Solution unique.
+          // On garde la valeur EXACTE (flottant) pour que la balance reflète
+          // fidèlement l'équation, même si x n'est pas entier (ex: 2x = 5 → x = 2.5).
+          this.state.xValue = deltaConst / deltaCoeff;
+          return { type: 'unique', value: this.state.xValue, isInteger: Number.isInteger(this.state.xValue) };
       }
+
+      // Cas parallèle (a = c)
+      if (deltaConst === 0) {
+          // 2x + 5 = 2x + 5 (Toujours vrai). X peut être n'importe quoi.
+          this.state.xValue = 10;
+          return { type: 'identity', value: null, isInteger: true };
+      }
+      // 2x + 5 = 2x + 10 (Impossible). On fixe une valeur arbitraire, la balance penchera.
+      this.state.xValue = 10;
+      return { type: 'impossible', value: null, isInteger: true };
   }
 
   // --- GÉNÉRATION AUTOMATIQUE ---
@@ -118,6 +116,41 @@ export class EquationEngine {
 
   resetCounts() { this.state.lhs = []; this.state.rhs = []; }
 
+  /** Somme signée des poids d'un type ('X' ou 'known') sur un côté ('left'/'right'). */
+  sumSideByType(side, type) {
+    const list = side === 'left' ? this.state.lhs : this.state.rhs;
+    return list.reduce((sum, item) => (item.type === type ? sum + item.val : sum), 0);
+  }
+
+  /**
+   * Divise les DEUX côtés par n (principe d'égalité). N'est autorisé que si
+   * tous les poids (coefficients de x et constantes) sont divisibles par n,
+   * pour rester dans le monde des nombres entiers du jeu.
+   * Reconstruit chaque côté en blocs agrégés. Retourne { ok, reason }.
+   */
+  divideBothSides(n) {
+    if (!Number.isInteger(n) || n < 2) return { ok: false, reason: 'invalid' };
+
+    const aggregate = (list) => list.reduce((acc, item) => {
+        if (item.type === 'X') acc.x += item.val; else acc.c += item.val;
+        return acc;
+    }, { x: 0, c: 0 });
+
+    const L = aggregate(this.state.lhs);
+    const R = aggregate(this.state.rhs);
+
+    const divisible = [L.x, L.c, R.x, R.c].every(v => v % n === 0);
+    if (!divisible) return { ok: false, reason: 'not-divisible' };
+
+    this.resetCounts();
+    if (L.x / n !== 0) this.updateWeight('left', 'X', L.x / n);
+    if (L.c / n !== 0) this.updateWeight('left', 'known', L.c / n);
+    if (R.x / n !== 0) this.updateWeight('right', 'X', R.x / n);
+    if (R.c / n !== 0) this.updateWeight('right', 'known', R.c / n);
+
+    return { ok: true };
+  }
+
   updateWeight(side, type, value, operation = 'add') {
     const list = side === 'left' ? this.state.lhs : this.state.rhs;
     if (operation === 'add') {
@@ -144,6 +177,29 @@ export class EquationEngine {
     return { delta, targetAngle, status: delta === 0 ? 'EQUILIBRIUM' : (delta > 0 ? 'LEFT_HEAVY' : 'RIGHT_HEAVY') };
   }
 
+  /**
+   * Détecte si l'équation est résolue : x est isolé d'un côté (coefficient net 1,
+   * sans constante) et l'autre côté ne contient que des constantes, le tout en équilibre.
+   * Retourne { value } si résolu, sinon null.
+   */
+  checkSolved() {
+    const sum = (list) => list.reduce((acc, item) => {
+        if (item.type === 'X') acc.x += item.val; else acc.c += item.val;
+        return acc;
+    }, { x: 0, c: 0 });
+
+    const L = sum(this.state.lhs);
+    const R = sum(this.state.rhs);
+
+    const leftIsolated  = this.state.lhs.length > 0 && L.x === 1 && L.c === 0 && R.x === 0;
+    const rightIsolated = this.state.rhs.length > 0 && R.x === 1 && R.c === 0 && L.x === 0;
+
+    if (!leftIsolated && !rightIsolated) return null;
+    if (this.calculateTiltFactor().status !== 'EQUILIBRIUM') return null;
+
+    return { value: leftIsolated ? R.c : L.c };
+  }
+
   getEquationHTML() {
     const formatTerm = (item, index) => {
         const val = item.val;
@@ -168,9 +224,15 @@ export class EquationEngine {
     };
 
     const buildSide = (list) => {
-        if (list.length === 0) return "0";
-        const sorted = [...list].sort((a, b) => (a.type === 'X' ? -1 : 1));
-        return sorted.map((item, i) => formatTerm(item, i)).join("");
+        // Agrégation par type : on additionne les x ensemble et les constantes
+        // ensemble → affichage simplifié « 3x + 42 » (et non « x + x + x + 42 »).
+        let xSum = 0, cSum = 0;
+        list.forEach(it => { if (it.type === 'X') xSum += it.val; else cSum += it.val; });
+        const terms = [];
+        if (xSum !== 0) terms.push({ type: 'X', val: xSum });
+        if (cSum !== 0) terms.push({ type: 'known', val: cSum });
+        if (terms.length === 0) return "0";
+        return terms.map((item, i) => formatTerm(item, i)).join("");
     };
 
     return `<span class="math-part">${buildSide(this.state.lhs)}</span> <span class="math-equal">=</span> <span class="math-part">${buildSide(this.state.rhs)}</span>`;

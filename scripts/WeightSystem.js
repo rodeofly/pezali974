@@ -32,30 +32,31 @@ export class WeightSystem {
         // Note: On ajoute un filtre de collision pour que les poids ne touchent pas le fléau fantôme
         const weightFilter = {
             category: C.CATEGORIES.WEIGHTS,
-            // Touche : Défaut (Murs), Autres Poids, Plateaux. Mais PAS le Mécanisme (Fléau).
-            mask: C.CATEGORIES.DEFAULT | C.CATEGORIES.WEIGHTS | C.CATEGORIES.TRAYS
+            // Touche : Murs, autres poids (libres ET verrouillés), plateaux.
+            mask: C.CATEGORIES.DEFAULT | C.CATEGORIES.WEIGHTS | C.CATEGORIES.TRAYS | C.CATEGORIES.WEIGHTS_LOCKED
+        };
+
+        // Propriétés communes : objets lourds, sans rebond, qui ne tournent pas
+        // (inertia: Infinity) → stables, lisibles, et ne « partent pas dans tous les sens ».
+        const commonOptions = {
+            restitution: C.WEIGHT.RESTITUTION,
+            friction: C.WEIGHT.FRICTION,
+            frictionAir: C.WEIGHT.FRICTION_AIR,
+            density: C.WEIGHT.DENSITY,
+            inertia: Infinity,
+            render: { fillStyle: fill, strokeStyle: stroke, lineWidth: 2 },
+            label: 'weight',
+            collisionFilter: weightFilter
         };
 
         if (type === 'X') {
             const baseSize = 40;
             // Taille logarithmique pour éviter les géants
-            const size = baseSize + Math.log(Math.max(1, absValue)) * 12; 
-            
-            body = Matter.Bodies.rectangle(x, y, size, size, {
-                restitution: 0.1, friction: 0.9, density: 0.002,
-                render: { fillStyle: fill, strokeStyle: stroke, lineWidth: 2 }, // <--- Ici on utilise 'fill'
-                label: 'weight',
-                collisionFilter: weightFilter
-            });
+            const size = baseSize + Math.log(Math.max(1, absValue)) * 12;
+            body = Matter.Bodies.rectangle(x, y, size, size, commonOptions);
         } else {
             const radius = 15 + Math.sqrt(Math.max(1, absValue)) * 3;
-            
-            body = Matter.Bodies.circle(x, y, radius, {
-                restitution: 0.1, friction: 0.8, density: 0.002,
-                render: { fillStyle: fill, strokeStyle: stroke, lineWidth: 2 }, // <--- Ici aussi
-                label: 'weight',
-                collisionFilter: weightFilter
-            });
+            body = Matter.Bodies.circle(x, y, radius, commonOptions);
         }
 
         // 4. Données Logiques
