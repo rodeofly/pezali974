@@ -492,9 +492,10 @@ input[type=range] {
     font-size: 0.72rem; color: #9ca3af; padding: 0 2px;
 }
 
-/* Bouton-toggle de la barre : alterne son libellé − / + */
-#power-toggle-bar.as-plus { background: #27ae60; }
-#power-toggle-bar.as-minus { background: #c0392b; }
+/* États actifs des 4 opérations */
+#op-add.active { background: #27ae60; box-shadow: 0 0 0 3px rgba(39,174,96,0.4); }
+#op-sub.active { background: #c0392b; box-shadow: 0 0 0 3px rgba(192,57,43,0.4); }
+#op-div.active { background: #8e44ad; box-shadow: 0 0 0 3px rgba(142,68,173,0.4); }
 .power-bank-hint { font-size: 0.72rem; color: #9ca3af; text-align: center; }
 .power-bank-items { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 560px; }
 .bank-col { display: flex; flex-direction: column; gap: 6px; }

@@ -154,7 +154,7 @@ function applyMode(mode) {
     interactionManager.setSubtractMode(isSub);
     physics.divisorPreview = 1;                   // pas d'aperçu de secteurs hors mode ÷ actif
     ui.setHammerActive(isHammer);
-    ui.setToggleLabel(mode);                       // le bouton de la barre alterne − / +
+    ui.setActiveOp(mode);                          // met en évidence l'op active (🏦 / − / ÷)
     ui.setBankVisible(!isSub && !isDiv);           // banque masquée en − et ÷
     ui.toggleCenterTrash(isSub);                   // corbeille en −
     ui.setDivisionScaleVisible(isDiv);             // échelle en ÷
@@ -210,8 +210,10 @@ ui.init({
     onNewEquation: () => startNewEquation(),
     onCustomEquation: (l, r) => startCustomEquation(l, r),
     onReset: () => window.location.reload(),
-    onModeSelect: (mode) => { if (['hammer', 'sub', 'div'].includes(mode)) toggleMode(mode); },
-    onToggleAddSub: () => applyMode(activeMode === 'sub' ? 'add' : 'sub'),
+    onModeSelect: (mode) => {
+        if (mode === 'add') applyMode('add');
+        else if (['sub', 'div', 'hammer'].includes(mode)) toggleMode(mode);
+    },
     onConfigChange: (newConfig) => {
         logic.updateConfig(newConfig);
         startNewEquation();
@@ -232,9 +234,12 @@ ui.init({
             const result = logic.divideBothSides(n);
             if (result.ok) {
                 victoryAnnounced = false;
+                // On consigne l'équation divisée AVANT le re-spawn (sinon le journal
+                // capturerait le « 0 = 0 » transitoire pendant que les poids retombent).
+                const dividedHTML = logic.getEquationHTML();
                 spawnFromLogic();
                 ui.popSlogan("Je divise par la même quantité de chaque côté");
-                scheduleHistorySnapshot({ kind: 'div', label: `÷ ${n}` });
+                ui.commitHistoryLine(dividedHTML, { kind: 'div', label: `÷ ${n}` });
             } else {
                 ui.showToast(`Division impossible : tout n'est pas divisible par ${n}.`, 'warning', 4500);
             }

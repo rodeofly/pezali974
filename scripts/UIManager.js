@@ -125,10 +125,6 @@ export class UIManager {
                     this.showToast("✖️ Pouvoir × : bientôt disponible.", 'info');
                     return;
                 }
-                if (power === 'toggle') {
-                    if (callbacks.onToggleAddSub) callbacks.onToggleAddSub();
-                    return;
-                }
                 if (callbacks.onModeSelect) callbacks.onModeSelect(power);
             });
         });
@@ -223,14 +219,13 @@ export class UIManager {
         this._sloganTimer = setTimeout(() => el.classList.remove('slogan-show'), 2400);
     }
 
-    /** Le bouton de la barre affiche le mode COURANT : + en mode +, − en mode −. */
-    setToggleLabel(mode) {
-        const btn = document.getElementById('power-toggle-bar');
-        if (!btn) return;
-        const showPlus = (mode !== 'sub'); // mode + (défaut) → affiche +
-        btn.textContent = showPlus ? '＋' : '−';
-        btn.classList.toggle('as-plus', showPlus);
-        btn.classList.toggle('as-minus', !showPlus);
+    /** Met en évidence l'opération active parmi les boutons (banque +, −, ÷). */
+    setActiveOp(mode) {
+        const map = { add: 'op-add', sub: 'op-sub', div: 'op-div' };
+        ['op-add', 'op-sub', 'op-div'].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) b.classList.toggle('active', map[mode] === id);
+        });
     }
 
     /** Affiche/masque la banque (masquée en mode −, remplacée par la corbeille). */
@@ -284,8 +279,11 @@ export class UIManager {
             parts.push(`<div class="eq-line${i === 0 ? ' eq-origin' : ''}">${entry.html}</div>`);
         });
         const last = this.history[this.history.length - 1];
-        // Ligne « en direct » (état courant) si elle diffère de la dernière étape validée.
-        if (this.currentLive && (!last || this.currentLive !== last.html)) {
+        // Ligne « en direct » (état courant) si elle diffère de la dernière étape
+        // validée — sauf si c'est le « 0 = 0 » transitoire (plateaux vidés pendant
+        // que les poids retombent), qu'on ne montre jamais.
+        const liveText = this.currentLive.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        if (this.currentLive && liveText !== '0 = 0' && (!last || this.currentLive !== last.html)) {
             parts.push(`<div class="eq-line eq-current">${this.currentLive}</div>`);
         }
         this.equationEl.innerHTML = parts.join('');
