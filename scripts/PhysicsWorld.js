@@ -33,24 +33,15 @@ export class PhysicsWorld {
         this._logo.src = `${import.meta.env.BASE_URL}logo.svg`;
     }
 
-    /** Longueur du mât, proportionnelle à la hauteur (compact en paysage smartphone). */
-    _mastLen() {
-        return Math.max(40, Math.min(90, this.height * 0.10));
-    }
-
-    /** Altitude du haut du sol — collé en bas de l'écran (laisse passer la barre des pouvoirs en overlay). */
+    /** Altitude du haut du sol (collé en bas de l'écran). */
     _groundTop() {
         return this.height - 24;
     }
 
-    /** Calcule trayBaseY pour que le bas du socle affleure le haut du sol. */
+    /** Plateaux positionnés pour que le mât fasse exactement 25 % de la
+     *  hauteur viewport (responsive). trayBaseY = groundTop − mast − 9. */
     _computeTrayBaseY() {
-        const groundTop = this._groundTop();
-        const mastLen = this._mastLen();
-        // Hauteur de socle estimée : mesurée sur #center-trash si déjà connue,
-        // sinon proportionnelle à la hauteur.
-        const pedH = this._centerTrashH || Math.max(60, Math.min(100, this.height * 0.12));
-        return groundTop - pedH - mastLen - 9;
+        return this._groundTop() - this.height * 0.25 - 9;
     }
 
     /** Vrai si une position (coords canvas) est sur/au-dessus de la corbeille (mode −). */
@@ -59,10 +50,10 @@ export class PhysicsWorld {
         if (!el || el.classList.contains('hidden') || !this.render) return false;
         const r = el.getBoundingClientRect();
         const c = this.render.canvas.getBoundingClientRect();
-        const x = pos.x + c.left, y = pos.y + c.top; // position en coords écran
-        // Zone généreuse : on accepte de relâcher au-dessus et un peu autour
-        // (le corps physique traîne derrière le curseur quand on lâche).
-        return x >= r.left - 60 && x <= r.right + 60 && y >= r.top - 170 && y <= r.bottom + 30;
+        const x = pos.x + c.left, y = pos.y + c.top;
+        // Zone de drop = cadre du popup (petite marge pour le trainage physique).
+        const m = 12;
+        return x >= r.left - m && x <= r.right + m && y >= r.top - m && y <= r.bottom + m;
     }
 
     init() {
@@ -179,8 +170,9 @@ export class PhysicsWorld {
         const rx2 = this.rightTray.position.x;
         const ly = this.leftTray.bounds.max.y;
         const ry = this.rightTray.bounds.max.y;
-        // Mât réduit au minimum : socle juste sous le pivot.
-        const pivotBaseY = this.pivotTopY + this._mastLen();
+        // Mât qui descend du pivot jusqu'au sol (longueur naturellement
+        // responsive à la hauteur viewport).
+        const pivotBaseY = this._groundTop();
 
         ctx.save();
         // Tout ce qu'on dessine ici va derrière les bodies déjà rendus
@@ -254,35 +246,13 @@ export class PhysicsWorld {
         ctx.beginPath(); ctx.arc(lx2, ly, 4, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(rx2, ry, 4, 0, Math.PI * 2); ctx.fill();
 
-        // Mât du pivot central jusqu'au socle en bas.
+        // Mât du pivot central jusqu'au sol — longueur responsive en hauteur.
         ctx.strokeStyle = C.COLORS.WOOD_DARK;
-        ctx.lineWidth = 6;
+        ctx.lineWidth = 8;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(cx, this.pivotTopY);
-        ctx.lineTo(cx, pivotBaseY - 4);
-        ctx.stroke();
-
-        // Socle rectangulaire (bois) sur lequel le mât vient se poser.
-        // Hauteur = écart pivotBaseY → sol, pour que le socle touche le sol
-        // pile (peu importe la mesure cachée de #center-trash).
-        const pedW = Math.max(280, Math.min(380, this.width * 0.84));
-        const ctEl = document.getElementById('center-trash');
-        if (ctEl) {
-            const h = ctEl.getBoundingClientRect().height;
-            if (h > 0) this._centerTrashH = h;
-        }
-        const groundTop = this._groundTop();
-        const pedH = Math.max(40, groundTop - pivotBaseY);
-
-        // Socle aux coins arrondis.
-        const ped_r = 14;
-        ctx.fillStyle = C.COLORS.WOOD_DARK;
-        ctx.strokeStyle = '#2b1f18';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(cx - pedW / 2, pivotBaseY, pedW, pedH, ped_r);
-        ctx.fill();
+        ctx.lineTo(cx, pivotBaseY);
         ctx.stroke();
 
         ctx.restore();
@@ -291,8 +261,12 @@ export class PhysicsWorld {
     renderLabels() {
         const context = this.render.context;
         const bodies = Composite.allBodies(this.engine.world);
-        
-        // 'Cambria Math'/'STIX Two Math' offrent les italiques mathématiques (𝑥).
+        // En mode aperçu division : on déplace les valeurs JUSTE AU-DESSUS des
+        // objets pour laisser voir les parts dans chaque secteur.
+        // Inclut N = -1 (prise d'opposé) ; exclut N = 0 (interdit) et N = 1 (trivial).
+        const dp = this.divisorPreview;
+        const dividing = dp !== 0 && dp !== 1;
+
         context.font = "bold 32px 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', 'Times New Roman', serif";
         context.textAlign = "center";
         context.textBaseline = "middle";
@@ -301,11 +275,6 @@ export class PhysicsWorld {
             if (body.label === 'weight' && body.logicData) {
                 const { type, value } = body.logicData;
                 let text = "";
-
-                // --- CORRECTION COULEUR ---
-                // Si négatif (fond clair), texte NOIR. Sinon BLANC.
-                context.fillStyle = (value < 0) ? "#000000" : "#ffffff";
-
                 if (type === 'X') {
                     if (value === 1) text = "𝑥";
                     else if (value === -1) text = "-𝑥";
@@ -313,8 +282,22 @@ export class PhysicsWorld {
                 } else {
                     text = value.toString();
                 }
-                
-                context.fillText(text, body.position.x, body.position.y);
+
+                if (dividing) {
+                    // Valeur au-dessus du poids, en blanc avec halo noir pour lisibilité.
+                    const r = body.circleRadius || (body.bounds.max.y - body.bounds.min.y) / 2;
+                    const ty = body.position.y - r - 14;
+                    context.fillStyle = '#fff';
+                    context.shadowColor = 'rgba(0,0,0,0.85)';
+                    context.shadowBlur = 4;
+                    context.fillText(text, body.position.x, ty);
+                    context.shadowColor = 'transparent';
+                    context.shadowBlur = 0;
+                } else {
+                    // Si négatif (fond clair), texte NOIR. Sinon BLANC.
+                    context.fillStyle = (value < 0) ? '#000' : '#fff';
+                    context.fillText(text, body.position.x, body.position.y);
+                }
             }
         });
     }
@@ -322,13 +305,25 @@ export class PhysicsWorld {
     /** Aperçu ÷ : découpe chaque poids en N secteurs de disque (traits pointillés). */
     renderDivisionSectors() {
         const N = this.divisorPreview;
-        if (!N || N < 2) return;
+        // 0 : interdit. 1 : trivial (pas de transformation).
+        // -1 : pas de lignes (un seul « secteur » = tout le poids), mais on
+        // affiche la valeur opposée au centre → enseigne la prise d'opposé.
+        if (N === 0 || N === 1) return;
+        const sectorCount = Math.abs(N);
         const ctx = this.render.context;
         const bodies = Composite.allBodies(this.engine.world);
+
+        const formatShare = (type, val) => {
+            if (type === 'X') {
+                if (val === 0)  return '0';
+                if (val === 1)  return '𝑥';
+                if (val === -1) return '-𝑥';
+                return `${val}𝑥`;
+            }
+            return `${val}`;
+        };
+
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 3]);
         bodies.forEach(body => {
             if (body.label !== 'weight') return;
             const { x, y } = body.position;
@@ -338,12 +333,56 @@ export class PhysicsWorld {
                 const h = body.bounds.max.y - body.bounds.min.y;
                 r = Math.min(w, h) / 2;
             }
-            for (let k = 0; k < N; k++) {
-                const ang = (Math.PI * 2 * k) / N - Math.PI / 2;
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-                ctx.lineTo(x + Math.cos(ang) * r, y + Math.sin(ang) * r);
-                ctx.stroke();
+            // Lignes de découpe (pointillées) — uniquement si plusieurs secteurs.
+            if (sectorCount >= 2) {
+                ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 3]);
+                for (let k = 0; k < sectorCount; k++) {
+                    const ang = (Math.PI * 2 * k) / sectorCount - Math.PI / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + Math.cos(ang) * r, y + Math.sin(ang) * r);
+                    ctx.stroke();
+                }
+            }
+            // Étiquette dans chaque secteur : part entière si divisible, sinon « ? ».
+            if (body.logicData) {
+                const v = body.logicData.value;
+                const divisible = v % N === 0;
+                const text = divisible
+                    ? formatShare(body.logicData.type, v / N)
+                    : '?';
+                // Police plus grande, dégressive avec N.
+                const fontSize = Math.max(14, Math.min(28, r * 0.7 / Math.max(1, Math.sqrt(N - 1))));
+                ctx.setLineDash([]);
+                ctx.font = `bold ${fontSize}px 'Cambria Math', 'STIX Two Math', 'Times New Roman', serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // Couleur adaptée au fond du poids :
+                //   - divisible : blanc sur fond foncé, noir sur fond clair (= comme le label)
+                //   - non divisible (?) : jaune vif avec halo noir → visible sur tous les fonds
+                if (divisible) {
+                    ctx.fillStyle = (v < 0) ? '#000' : '#fff';
+                    ctx.shadowColor = (v < 0) ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.5)';
+                    ctx.shadowBlur = 2;
+                } else {
+                    ctx.fillStyle = '#f1c40f';
+                    ctx.shadowColor = 'rgba(0,0,0,0.85)';
+                    ctx.shadowBlur = 4;
+                }
+                if (sectorCount >= 2) {
+                    const textR = r * 0.6;
+                    for (let k = 0; k < sectorCount; k++) {
+                        const ang = (Math.PI * 2 * (k + 0.5)) / sectorCount - Math.PI / 2;
+                        ctx.fillText(text, x + Math.cos(ang) * textR, y + Math.sin(ang) * textR);
+                    }
+                } else {
+                    // N = -1 : un seul « secteur » = tout le poids, texte au centre.
+                    ctx.fillText(text, x, y);
+                }
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
             }
         });
         ctx.restore();

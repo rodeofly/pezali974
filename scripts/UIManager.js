@@ -158,16 +158,44 @@ export class UIManager {
         // Échelle de division (mode ÷) : input = aperçu des secteurs, change = applique.
         const divSlider = document.getElementById('div-slider');
         const divN = document.getElementById('div-n');
+        const divCustom = document.getElementById('div-custom');
+        const divCustomApply = document.getElementById('div-custom-apply');
+
+        const fmtSigned = (n) => (n < 0 ? `−${Math.abs(n)}` : `${n}`);
+        let currentN = 1;
+        const setPreview = (n) => {
+            currentN = n;
+            if (divN) {
+                if (n === 0) divN.innerHTML = '<span class="div-forbidden" title="Division par 0 interdite">⊘</span>';
+                else divN.innerText = fmtSigned(n);
+            }
+            if (callbacks.onDivisorPreview) callbacks.onDivisorPreview(n);
+        };
+        const validate = () => {
+            if (currentN !== 0 && Math.abs(currentN) >= 2 && callbacks.onDivisorApply) {
+                callbacks.onDivisorApply(currentN);
+            }
+        };
+
+        // Slider : APERÇU uniquement, ne valide plus au release.
         if (divSlider) {
             divSlider.addEventListener('input', () => {
                 const n = parseInt(divSlider.value, 10);
-                if (divN) divN.innerText = `${n}`;
-                if (callbacks.onDivisorPreview) callbacks.onDivisorPreview(n);
-            });
-            divSlider.addEventListener('change', () => {
-                if (callbacks.onDivisorApply) callbacks.onDivisorApply(parseInt(divSlider.value, 10));
+                if (divCustom) divCustom.value = '';
+                setPreview(n);
             });
         }
+
+        // Champ libre : aperçu en direct, Enter = valider.
+        if (divCustom) {
+            divCustom.addEventListener('input', () => {
+                const n = parseInt(divCustom.value, 10);
+                if (!isNaN(n)) setPreview(n);
+            });
+            divCustom.addEventListener('keydown', (e) => { if (e.key === 'Enter') validate(); });
+        }
+        // Bouton « Valider » : applique le diviseur en cours (slider ou champ).
+        if (divCustomApply) divCustomApply.addEventListener('click', validate);
 
         // Clic sur un poids de la banque adaptative → ajout des deux côtés.
         this.powerBankItems = document.querySelector('#power-bank .power-bank-items');

@@ -1,82 +1,94 @@
-# ⚖️ EquaMotion974 (Pezali974)
+# ⚖️ Pezali974 — Balance & Équations
 
-> **Un simulateur de balance interactif pour apprendre à résoudre des équations linéaires par la physique.**
+> **Une balance physique pour résoudre des équations linéaires avec les doigts (ou la souris).**
+> Pose les poids, garde l'équilibre, isole l'inconnue. Mathématiques niveau collège, geste de cycle 2.
 
-[![Demo Live](https://img.shields.io/badge/DEMO-JOUER%20MAINTENANT-2ea44f?style=for-the-badge&logo=github)](https://rodeofly.github.io/pezali974/)
+<p align="center">
+  <a href="https://rodeofly.github.io/pezali974/">
+    <img alt="Jouer maintenant" src="https://img.shields.io/badge/🎮%20DÉMO%20EN%20LIGNE-jouer%20maintenant-2ea44f?style=for-the-badge">
+  </a>
+</p>
 
-🔗 **Lien direct vers la démo :** [https://rodeofly.github.io/pezali974/](https://rodeofly.github.io/pezali974/)
+<p align="center">
+  <a href="https://rodeofly.github.io/pezali974/">https://rodeofly.github.io/pezali974/</a>
+</p>
 
 ---
 
-## 📖 À propos
+## 📖 L'idée
 
-**EquaMotion974** est un outil pédagogique conçu pour visualiser les concepts abstraits de l'algèbre. En utilisant un moteur physique 2D (Matter.js), il transforme les équations mathématiques (ex: `2x + 3 = 11`) en une balance physique réelle.
+Une équation comme `2𝑥 + 5 = 𝑥 + 11`, ce sont deux côtés qui pèsent pareil. Si tu enlèves le même poids des deux côtés, l'égalité tient ; si tu divises par le même nombre, l'égalité tient aussi. C'est exactement ce que fait cette appli : tu manipules des poids sur une vraie balance, et tu observes l'effet sur l'équation en haut de l'écran.
 
-L'objectif est d'isoler l'inconnue **$x$** (les carrés) en manipulant les poids sur les plateaux, tout en maintenant l'équilibre, exactement comme on le ferait mathématiquement.
+- Les **carrés rouges** sont l'inconnue 𝑥. Leur masse est secrète.
+- Les **cercles bleus** sont les constantes (la valeur est écrite dessus).
+- Les versions **claires** sont les opposés (négatifs).
+- L'entête affiche `=` quand la balance est en équilibre, `≠` sinon — y compris pendant un drag asymétrique.
+- Quand l'inconnue est isolée et l'équilibre atteint, l'ensemble solution `S = { … }` s'inscrit dans le journal.
 
-## ✨ Fonctionnalités Clés
+## 🎮 Comment ça se joue
 
-### 🎮 Deux Modes de Jeu
-L'application propose deux approches distinctes via le switch "Mode Rapide" :
+La barre des pouvoirs à droite contient quatre opérations. Chacune ouvre un panneau collé au bas de l'écran.
 
-1.  **Mode Physique ("Pluie") 🌧️**
-    * Les objets tombent du ciel.
-    * Interactions physiques réalistes (collisions, gravité).
-    * **Antimatière :** Pour soustraire une valeur, on fait tomber un poids négatif (gris/blanc). Lorsqu'il touche un poids positif, les deux s'annihilent (disparaissent) !
+| Bouton | Action |
+|---|---|
+| **+** Ajouter | Ouvre la banque ; clique une puce pour faire tomber ce poids **des deux côtés**. |
+| **−** Retirer | Fait apparaître la corbeille ; glisse-y un poids — son jumeau de l'autre côté part avec lui. |
+| **×** Multiplier | À venir. |
+| **÷** Diviser | Slider, champ libre, ou `−1` pour prendre l'opposé. Chaque poids se découpe en parts (`?` = non divisible). Clique **Valider**. |
 
-2.  **Mode Rapide ("Solver") ⚡**
-    * Modification instantanée des objets sur les plateaux.
-    * Idéal pour tester rapidement des hypothèses de résolution.
-    * Gestion intelligente : transforme, divise ou supprime les objets instantanément sans attendre la chute.
+Et trois mécaniques passives :
 
-### 🧪 Mécaniques
-* **Les Inconnues ($x$)** : Représentées par des carrés (Rouge/Gris). Leur masse est secrète et définie aléatoirement.
-* **Les Constantes ($1$)** : Représentées par des cercles (Bleu/Blanc).
-* **Division Intuitivre** : Double-cliquez sur un poids pour le diviser en plusieurs morceaux (ex: diviser un bloc de 10 en deux blocs de 5).
-* **Générateur d'Équations** : Crée automatiquement des problèmes solubles de type $ax + b = cx + d$.
+- **Fusion** : glisse un poids sur un autre du même type → ils s'additionnent (3 + 5 = 8).
+- **Annihilation** : un poids sur son opposé → vaporisation. Le « 0 » qui reste se vaporise d'un tap.
+- **Double-clic / double-tap** sur un poids → il se découpe en deux (la valeur d'en face en priorité).
 
-## 🛠️ Interface & Contrôles
+Le panneau **⚙️ Configuration** propose deux presets :
+- **Cycle 3** : tout positif, solution garantie positive.
+- **Cycle 4** : `[−20, +20]` partout, équations à coefficients négatifs autorisées.
 
-* **Drag & Drop** : Déplacez les poids manuellement avec la souris.
-* **Barre de Résolution (Bas)** : Utilisez les boutons `+x`, `-x`, `+1`, `-1` pour appliquer la même opération des deux côtés de la balance (principe d'égalité).
-* **Menu Latéral** : Ajoutez des poids librement pour expérimenter.
-* **Panneau de Configuration (⚙️)** : Ajustez la difficulté, la valeur maximale de $x$ et le mode de division.
+Tu peux aussi régler chaque paramètre individuellement avec les dual-sliders (`xmin/xmax`, `coefmin/coefmax`, `cmin/cmax`).
 
-## 💻 Installation Locale
+## 🏗️ Sous le capot
 
-Si vous souhaitez cloner le projet et le modifier sur votre machine :
+- **[Matter.js](https://brm.io/matter-js/)** pour la physique 2D — fléau articulé, plateaux contraints à l'horizontale via un placement arc-tangentiel, sol fin collé en bas d'écran.
+- **JS modulaire** (ES6) : `EquationEngine` (logique de résolution), `PhysicsWorld` (scène + rendu), `WeightSystem` (création des poids), `InteractionManager` (drag, fusion, division, double-clic), `UIManager` (panneaux et historique).
+- **CSS responsive en `clamp()` + `vmin`** — les dimensions des plateaux, la longueur du mât (25 % de la hauteur viewport), la taille des poids et la police des labels s'adaptent du smartphone paysage au grand écran.
+- **Vite** pour le dev / build.
+- **GitHub Actions** déploie automatiquement sur GitHub Pages à chaque push sur `main`.
 
-1.  **Cloner le dépôt :**
-    ```bash
-    git clone [https://github.com/rodeofly/pezali974.git](https://github.com/rodeofly/pezali974.git)
-    cd pezali974
-    ```
+## 💻 Lancer en local
 
-2.  **Installer les dépendances :**
-    ```bash
-    npm install
-    ```
+```bash
+git clone https://github.com/rodeofly/pezali974.git
+cd pezali974
+npm install
+npm run dev          # serveur de dev sur http://localhost:5173/pezali974/
+npm run build        # bundle de production dans dist/
+```
 
-3.  **Lancer le serveur de développement :**
-    ```bash
-    npm run dev
-    ```
+## 📁 Structure
 
-4.  **Construire pour la production :**
-    ```bash
-    npm run build
-    ```
-
-## 🏗️ Technologies Utilisées
-
-* **[Matter.js](https://brm.io/matter-js/)** : Moteur physique 2D pour la simulation de la balance et des collisions.
-* **JavaScript (ES6 Modules)** : Architecture orientée objet (`PhysicsWorld`, `EquationEngine`, `InteractionManager`).
-* **Vite** : Outil de build ultra-rapide.
+```
+pezali974/
+├── index.html
+├── style.css
+├── public/                  # assets statiques (logo, image de fond)
+├── scripts/
+│   ├── main.js              # orchestration
+│   ├── EquationEngine.js    # parser, générateur, résolution
+│   ├── PhysicsWorld.js      # scène Matter.js, fléau, rendu canvas
+│   ├── BalanceModels.js     # géométrie des plateaux (compound bodies)
+│   ├── WeightSystem.js      # usine de poids (carrés/cercles)
+│   ├── InteractionManager.js # drag, fusion, annihilation, division
+│   ├── UIManager.js         # header, panneaux, journal de résolution
+│   └── Constants.js         # tokens dimensionnels + computeBalanceDims
+└── .github/workflows/deploy.yml  # CI → GitHub Pages
+```
 
 ## 🤝 Contribuer
 
-Les suggestions et les pull requests sont les bienvenues ! Pour des changements majeurs, veuillez d'abord ouvrir une issue pour discuter de ce que vous aimeriez changer.
+Issues et pull requests bienvenues. Pour des changements majeurs, ouvre d'abord une issue pour qu'on en discute.
 
 ---
 
-*Développé avec ❤️ par [Maths974.fr](https://www.maths974.fr).à La Réunion (974).*
+<p align="center">Développé avec ❤️ par <a href="https://www.maths974.fr">Maths974.fr</a> · La Réunion 🌋</p>

@@ -147,7 +147,9 @@ export class EquationEngine {
    * Reconstruit chaque côté en blocs agrégés. Retourne { ok, reason }.
    */
   divideBothSides(n) {
-    if (!Number.isInteger(n) || n < 2) return { ok: false, reason: 'invalid' };
+    // Accepte les entiers non nuls de valeur absolue ≥ 2 (les n = ±1 sont
+    // triviaux ; n = 0 est interdit).
+    if (!Number.isInteger(n) || n === 0 || Math.abs(n) < 2) return { ok: false, reason: 'invalid' };
 
     const aggregate = (list) => list.reduce((acc, item) => {
         if (item.type === 'X') acc.x += item.val; else acc.c += item.val;

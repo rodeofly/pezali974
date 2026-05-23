@@ -22,6 +22,7 @@
 
     <div id="settings-panel" class="panel hidden">
         <h2>🛠️ Configuration</h2>
+        <button id="btn-help" class="btn-help-link" type="button">❔ Comment jouer ?</button>
 
         <div class="setting-group setting-card">
             <label class="setting-title">✍️ Entrée manuelle d'une équation</label>
@@ -72,28 +73,63 @@
     
     <div id="help-panel" class="panel hidden">
         <h2>📖 Comment jouer ?</h2>
-        <p class="help-intro">Le but : <b>isoler l'inconnue <i>x</i></b> en gardant la balance en équilibre, comme dans une vraie équation.</p>
-        <ul class="help-list">
-            <li><span class="help-ico">🟥</span> Les <b>carrés</b> rouges sont les inconnues (<i>x</i>), leur masse est secrète.</li>
-            <li><span class="help-ico">🔵</span> Les <b>cercles</b> bleus sont les constantes (des « 1 »).</li>
-            <li><span class="help-ico">➕</span> <b>Mode +</b> (par défaut) : clique un poids dans la <b>banque</b> pour l'ajouter <b>des deux côtés</b>. Tu peux aussi <b>agréger</b> (glisser un poids sur un autre).</li>
-            <li><span class="help-ico">➖</span> <b>Mode −</b> : le bouton <code>−</code> remplace la banque par une <b>corbeille</b>. Dépose un poids dedans pour le retirer ; <b>deux identiques</b> = retrait des deux côtés.</li>
-            <li><span class="help-ico">➗</span> <b>Pouvoir ÷</b> : ouvre une <b>échelle</b> ; glisse vers la droite pour choisir le diviseur (2, 3, 4…) — chaque poids se découpe en secteurs — puis relâche pour diviser les deux côtés. <code>×</code> arrive bientôt.</li>
-            <li><span class="help-ico">🏦</span> La <b>Banque</b> (en haut à gauche) : clique un poids pour l'ajouter, puis glisse-le dans un bac.</li>
-            <li><span class="help-ico">🧲</span> <b>Glisse</b> un poids sur un autre du même type pour les <b>combiner</b> (1 + 1 = 2…).</li>
-            <li><span class="help-ico">🌧️</span> Un poids <b>négatif</b> glissé sur un positif les <b>annihile</b> (antimatière).</li>
-            <li><span class="help-ico">✂️</span> <b>Double-clique</b> un poids pour le diviser.</li>
-            <li><span class="help-ico">🔨</span> Le <b>marteau</b> découpe un poids pour faire apparaître la valeur présente sur l'autre plateau (sinon, découpe au hasard).</li>
-            <li><span class="help-ico">🎉</span> Quand un côté ne contient plus que <i>x</i> et l'autre un nombre, c'est gagné !</li>
-        </ul>
+        <p class="help-intro">Le but : <b>isoler l'inconnue <i>𝑥</i></b> en gardant la balance en équilibre, comme dans une vraie équation. Tu peux faire toutes les opérations… à condition de les appliquer <b>des deux côtés</b>.</p>
+
+        <h3 class="help-section">Les pièces</h3>
+        <p class="help-item"><b class="help-chip square">𝑥</b> Carré rouge : l'<b>inconnue</b>. Sa masse est secrète, à toi de la trouver.</p>
+        <p class="help-item"><b class="help-chip circle">1</b> Cercle bleu : un <b>nombre</b> connu. Sa valeur est écrite dessus.</p>
+        <p class="help-item">Les versions <b>claires</b> sont les <b>opposés</b> (négatifs).</p>
+
+        <h3 class="help-section">Les boutons en haut à droite</h3>
+        <p class="help-item"><b class="help-key">↻</b> <b>Nouvelle équation</b> — tire une nouvelle équation au hasard (réglages dans ⚙️).</p>
+
+        <h3 class="help-section">La barre des pouvoirs (à droite)</h3>
+        <p class="help-item"><b class="help-key">+</b> <b>Ajouter</b> — ouvre la banque ; clique une puce pour ajouter ce poids <b>des deux côtés</b>.</p>
+        <p class="help-item"><b class="help-key">−</b> <b>Retirer</b> — fait apparaître la corbeille ; glisse-y un poids, son <b>jumeau de l'autre côté</b> part avec lui.</p>
+        <p class="help-item"><b class="help-key">×</b> <b>Multiplier</b> — à venir.</p>
+        <p class="help-item"><b class="help-key">÷</b> <b>Diviser</b> — choisis un diviseur (slider, champ libre, ou <b>−1</b> pour prendre l'opposé). Chaque poids se découpe en parts. <b>?</b> = pas divisible. Clique <b>Valider</b>.</p>
+
+        <h3 class="help-section">Astuces sur les poids</h3>
+        <p class="help-item"><b class="help-key">🧲</b> <b>Glisse</b> un poids sur un autre du même type → ils <b>fusionnent</b> (3 + 5 = 8).</p>
+        <p class="help-item"><b class="help-key">⚡</b> Un poids <b>opposé</b> sur son contraire → <b>annihilation</b>. Le « 0 » qui reste se vaporise d'un clic.</p>
+        <p class="help-item"><b class="help-key">✂️</b> <b>Double-clic</b> sur un poids → il se découpe en deux. Pratique pour faire émerger la valeur d'en face.</p>
+
+        <h3 class="help-section">Gagner</h3>
+        <p class="help-item"><b class="help-key">🎉</b> Quand un côté ne contient plus que <i>𝑥</i> et l'autre un nombre, et que la balance est à <b>l'équilibre</b> (<b>=</b> dans l'entête), tu as trouvé. Sinon le symbole devient <b>≠</b>.</p>
+
         <button id="close-help">J'ai compris</button>
     </div>
 
-    <div id="floating-actions">
-        <button id="btn-new-eq" title="Nouvelle équation" aria-label="Nouvelle équation">↻</button>
+    <div id="actions-left">
         <button id="btn-fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button>
-        <button id="btn-help" title="Aide" aria-label="Aide">❔</button>
         <button id="btn-settings" title="Configuration" aria-label="Configuration">⚙️</button>
+    </div>
+    <div id="actions-right">
+        <button id="btn-new-eq" title="Nouvelle équation" aria-label="Nouvelle équation">↻</button>
+        <div id="solver-bar">
+            <div class="solver-actions" id="powers">
+                <div class="power-wrap">
+                    <button class="btn-power" id="op-add" data-power="add" title="+ : ajouter le même poids des deux côtés">+</button>
+                    <span class="power-label">Ajouter</span>
+                </div>
+                <div class="power-wrap">
+                    <button class="btn-power" id="op-sub" data-power="sub" title="− : retirer le même poids des deux côtés">−</button>
+                    <span class="power-label">Retirer</span>
+                </div>
+                <div class="power-wrap">
+                    <button class="btn-power" id="power-mul" data-power="mul" title="× (à venir)">×</button>
+                    <span class="power-label">Multiplier</span>
+                </div>
+                <div class="power-wrap">
+                    <button class="btn-power" id="op-div" data-power="div" title="÷ : échelle de division">÷</button>
+                    <span class="power-label">Diviser</span>
+                </div>
+                <div class="power-wrap" style="display:none">
+                    <button class="btn-power" id="btn-hammer" data-power="hammer" aria-pressed="false" title="Marteau : découper un poids">🔨</button>
+                    <span class="power-label">Casser</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <img id="corner-logo" src="logo.svg" alt="" aria-hidden="true">
@@ -115,7 +151,7 @@
     <!-- Mode + : banque dynamique. Repliée par défaut (icône +) ; clic = déplie. -->
     <div id="power-bank">
         <div class="power-bank-head">
-            <span class="power-bank-hint">Clique une puce pour ajouter le même poids des deux côtés · Double-clic sur un objet pour le casser</span>
+            <span class="power-bank-hint">Clique une puce pour ajouter le même poids des deux côtés<br>Double-clic sur un objet pour le casser</span>
         </div>
         <div class="power-bank-items"></div>
     </div>
@@ -124,45 +160,27 @@
     <div id="center-trash" class="hidden">
         <span class="power-badge minus" aria-hidden="true">−</span>
         <span class="trash-ico">🗑️</span>
-        <span class="trash-label">Dépose un poids ici : il est retiré, ainsi que son jumeau de l'autre côté · Double-clic sur un objet pour le casser</span>
+        <span class="trash-label">Dépose un poids ici : il est retiré, ainsi que son jumeau de l'autre côté<br>Double-clic sur un objet pour le casser</span>
     </div>
 
     <!-- Mode ÷ : échelle de division. Glisse vers la droite pour choisir le diviseur ; relâche pour appliquer. -->
     <div id="division-scale" class="hidden">
-        <div class="div-scale-head">
-            <span class="power-badge div" aria-hidden="true">÷</span>
-            <span class="div-scale-value">Diviser par <b id="div-n">1</b> · glisse puis relâche</span>
+        <div class="div-slider-area">
+            <div class="div-scale-head">
+                <span class="power-badge div" aria-hidden="true">÷</span>
+                <span class="div-scale-value">Diviser par <b id="div-n">1</b></span>
+            </div>
+            <input type="range" id="div-slider" min="-8" max="8" value="1" step="1">
+            <div class="div-scale-ticks">
+                <span>−8</span><span>−4</span><span>0</span><span>4</span><span>8</span>
+            </div>
         </div>
-        <input type="range" id="div-slider" min="1" max="8" value="1" step="1">
-        <div class="div-scale-ticks">
-            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span>
+        <div class="div-custom-row">
+            <input type="number" id="div-custom" step="1" placeholder="N" inputmode="numeric" aria-label="Diviseur personnalisé">
+            <button id="div-custom-apply" class="btn-div-apply">Valider</button>
         </div>
     </div>
 
-    <div id="solver-bar">
-        <div class="solver-actions" id="powers">
-            <div class="power-wrap">
-                <button class="btn-power" id="op-add" data-power="add" title="+ : ajouter le même poids des deux côtés">+</button>
-                <span class="power-label">Ajouter</span>
-            </div>
-            <div class="power-wrap">
-                <button class="btn-power" id="op-sub" data-power="sub" title="− : retirer le même poids des deux côtés">−</button>
-                <span class="power-label">Retirer</span>
-            </div>
-            <div class="power-wrap">
-                <button class="btn-power" id="power-mul" data-power="mul" title="× (à venir)">×</button>
-                <span class="power-label">Multiplier</span>
-            </div>
-            <div class="power-wrap">
-                <button class="btn-power" id="op-div" data-power="div" title="÷ : échelle de division">÷</button>
-                <span class="power-label">Diviser</span>
-            </div>
-            <div class="power-wrap" style="display:none">
-                <button class="btn-power" id="btn-hammer" data-power="hammer" aria-pressed="false" title="Marteau : découper un poids">🔨</button>
-                <span class="power-label">Casser</span>
-            </div>
-        </div>
-    </div>
     <script type="module" src="./scripts/main.js"></script>
 </body>
 </html>

@@ -141,7 +141,8 @@ interactionManager.onSymmetricRemove = (data, symmetric) => {
         ui.popSlogan("Je retire la même quantité de chaque côté");
         scheduleHistorySnapshot({ kind: data.value > 0 ? 'sub' : 'add', label: opLabel(data.type, -data.value) });
     }
-    applyMode(null); // ferme la corbeille après dépôt
+    // La corbeille reste ouverte pour des dépôts successifs ; on la ferme
+    // seulement au clic extérieur ou via un nouveau clic sur le bouton −.
 };
 
 // Aucun mode actif au démarrage : barre de pouvoirs neutre, rien d'ouvert.
@@ -165,6 +166,27 @@ function applyMode(mode) {
     ui.setDivisionScaleVisible(isDiv);
 }
 function toggleMode(mode) { applyMode(activeMode === mode ? null : mode); }
+
+// Clic en dehors d'un panneau ouvert → on referme et on revient au mode neutre.
+// On filtre les drags : on ne ferme que si le pointer n'a pas bougé entre
+// mousedown et mouseup (vrai clic, pas glisser-déposer dans la corbeille).
+let _mdX = 0, _mdY = 0;
+document.addEventListener('mousedown', (e) => { _mdX = e.clientX; _mdY = e.clientY; });
+document.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    if (t) { _mdX = t.clientX; _mdY = t.clientY; }
+}, { passive: true });
+document.addEventListener('click', (e) => {
+    if (!activeMode) return;
+    const dx = e.clientX - _mdX, dy = e.clientY - _mdY;
+    if (dx * dx + dy * dy > 64) return; // > 8 px de déplacement → drag, on ignore
+    const ids = ['power-bank', 'center-trash', 'division-scale'];
+    const open = ids.map(id => document.getElementById(id)).find(el => el && !el.classList.contains('hidden'));
+    if (!open) return;
+    if (open.contains(e.target)) return;
+    if (e.target.closest('.btn-power, #floating-actions, #settings-panel, #help-panel')) return;
+    applyMode(null);
+});
 
 // Construit la banque du pouvoir + : valeurs présentes sur la balance + leurs
 // inverses, plus les unités de base (x, -x, 1, -1).
