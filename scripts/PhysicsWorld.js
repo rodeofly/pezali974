@@ -277,7 +277,15 @@ export class PhysicsWorld {
             if (logoW > maxW) { logoW = maxW; logoH = logoW / aspect; }
             const px = cx - logoW / 2;
             const py = pivotBaseY + (pedH - logoH) / 2;
+            const prevAlpha = ctx.globalAlpha;
+            const prevFilter = ctx.filter;
+            // Effet gravure : ombre sombre offset haut-gauche (rim qui casse
+            // la lumière) + reflet clair offset bas-droite (fond du sillon).
+            ctx.filter = 'drop-shadow(-1px -1px 0 rgba(0,0,0,0.75)) drop-shadow(1.5px 1.5px 0 rgba(255,255,255,0.28))';
+            ctx.globalAlpha = 0.4;
             ctx.drawImage(this._logo, px, py, logoW, logoH);
+            ctx.filter = prevFilter;
+            ctx.globalAlpha = prevAlpha;
         }
 
         // Socle aux coins arrondis.
