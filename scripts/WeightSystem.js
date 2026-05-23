@@ -49,17 +49,18 @@ export class WeightSystem {
             collisionFilter: weightFilter
         };
 
+        // Facteur de scale : ~0.55 sur smartphone, 1 sur grand écran.
+        const sf = C.BALANCE.SIZE_FACTOR || 1;
         if (value === 0) {
             // Vestige d'annihilation : petite trace neutre à faire disparaître d'un tap.
-            if (type === 'X') body = Matter.Bodies.rectangle(x, y, 38, 38, commonOptions);
-            else body = Matter.Bodies.circle(x, y, 16, commonOptions);
+            if (type === 'X') body = Matter.Bodies.rectangle(x, y, 38 * sf, 38 * sf, commonOptions);
+            else body = Matter.Bodies.circle(x, y, 16 * sf, commonOptions);
         } else if (type === 'X') {
-            const baseSize = 72;
-            // Taille logarithmique pour éviter les géants
-            const size = baseSize + Math.log(Math.max(1, absValue)) * 22;
+            const baseSize = 72 * sf;
+            const size = baseSize + Math.log(Math.max(1, absValue)) * 22 * sf;
             body = Matter.Bodies.rectangle(x, y, size, size, commonOptions);
         } else {
-            const radius = 28 + Math.sqrt(Math.max(1, absValue)) * 5;
+            const radius = (28 + Math.sqrt(Math.max(1, absValue)) * 5) * sf;
             body = Matter.Bodies.circle(x, y, radius, commonOptions);
         }
 

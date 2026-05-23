@@ -267,7 +267,9 @@ export class PhysicsWorld {
         const dp = this.divisorPreview;
         const dividing = dp !== 0 && dp !== 1;
 
-        context.font = "bold 32px 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', 'Times New Roman', serif";
+        const sf = C.BALANCE.SIZE_FACTOR || 1;
+        const labelPx = Math.round(32 * sf);
+        context.font = `bold ${labelPx}px 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', 'Times New Roman', serif`;
         context.textAlign = "center";
         context.textBaseline = "middle";
 

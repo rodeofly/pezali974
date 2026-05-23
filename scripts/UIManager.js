@@ -261,16 +261,18 @@ export class UIManager {
     }
 
     /** Affiche un slogan qui « pop » au centre (usage éclairé d'un super-pouvoir). */
-    popSlogan(text) {
+    popSlogan(text, variant = '') {
         const el = document.getElementById('slogan');
         if (!el) return;
-        el.textContent = text;
-        el.classList.remove('slogan-show');
+        el.innerHTML = text;
+        el.classList.remove('slogan-show', 'slogan-victory');
+        if (variant) el.classList.add('slogan-' + variant);
         // force le redémarrage de l'animation
         void el.offsetWidth;
         el.classList.add('slogan-show');
         clearTimeout(this._sloganTimer);
-        this._sloganTimer = setTimeout(() => el.classList.remove('slogan-show'), 2400);
+        const duration = variant === 'victory' ? 5500 : 2400;
+        this._sloganTimer = setTimeout(() => el.classList.remove('slogan-show'), duration);
     }
 
     /** Met en évidence l'opération active parmi les boutons (banque +, −, ÷). */

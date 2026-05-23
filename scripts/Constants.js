@@ -65,19 +65,22 @@ export const C = {
  * Mute C.BALANCE in place et retourne aussi les valeurs.
  */
 export function computeBalanceDims(width, height) {
-    const trayW = Math.max(180, Math.min(480, width * 0.32));
-    // Parois plus basses sur écrans courts (paysage smartphone) → les bacs
-    // ne débordent plus au-dessus du header.
+    // Facteur de réduction pour smartphones : 1 sur grand écran,
+    // ~0.55 sur petit (vmin = côté le plus court du viewport).
+    const vmin = Math.min(width, height);
+    const sizeFactor = Math.max(0.55, Math.min(1, vmin / 700));
+
+    const trayW = Math.max(140, Math.min(480, width * 0.32));
     const wallH = Math.max(70, Math.min(240, height * 0.22));
-    const maxOffset = (width - trayW) / 2 - 40;
-    const offset = Math.max(trayW * 0.55, Math.min(width * 0.22, maxOffset));
-    // Débattement vertical proportionnel : sur écran court, on évite que
-    // le bac descendant rentre dans le socle.
+    const maxOffset = (width - trayW) / 2 - 30;
+    // offset borné par maxOffset (sinon les plateaux sortent de l'écran).
+    const offset = Math.min(maxOffset, Math.max(trayW * 0.5, width * 0.22));
     const maxTravel = Math.max(25, Math.min(140, height * 0.08));
 
     C.BALANCE.TRAY_WIDTH = trayW;
     C.BALANCE.TRAY_WALL_HEIGHT = wallH;
     C.BALANCE.TRAY_OFFSET = offset;
     C.BALANCE.MAX_TRAVEL = maxTravel;
+    C.BALANCE.SIZE_FACTOR = sizeFactor;
     return C.BALANCE;
 }

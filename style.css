@@ -918,9 +918,9 @@ input[type=range] {
 .power-chip.circle { background: #3498db; border-color: #2980b9; border-radius: 999px; }
 .power-chip.circle.negative { background: #ecf0f1; border-color: #bdc3c7; color: #1e1e24; }
 
-/* --- SLOGAN « pop » --- */
+/* --- SLOGAN « pop » centré --- */
 #slogan {
-    position: fixed; top: 40%; left: 50%;
+    position: fixed; top: 50%; left: 50%;
     transform: translate(-50%, -50%) scale(0.6);
     z-index: 250; pointer-events: none;
     font-size: var(--fs-2xl); font-weight: 800; text-align: center;
@@ -940,6 +940,25 @@ input[type=range] {
     80%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%,-58%) scale(0.95); }
 }
+
+/* Variante victoire : plus grand, vert, dure plus longtemps. */
+#slogan.slogan-victory {
+    background: rgba(39, 174, 96, 0.96);
+    font-size: clamp(1.8rem, 6vmin, 3rem);
+    padding: clamp(16px, 3vmin, 30px) clamp(24px, 4vmin, 44px);
+    box-shadow: 0 12px 50px rgba(39, 174, 96, 0.6),
+                0 0 80px rgba(46, 204, 113, 0.4);
+    border: 3px solid rgba(255,255,255,0.25);
+}
+#slogan.slogan-victory.slogan-show { animation: victoryPop 5.5s ease forwards; }
+@keyframes victoryPop {
+    0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.4) rotate(-3deg); }
+    8%   { opacity: 1; transform: translate(-50%,-50%) scale(1.12) rotate(2deg); }
+    14%  { transform: translate(-50%,-50%) scale(1) rotate(0deg); }
+    92%  { opacity: 1; transform: translate(-50%,-50%) scale(1) rotate(0deg); }
+    100% { opacity: 0; transform: translate(-50%,-60%) scale(0.92); }
+}
+
 @media (prefers-reduced-motion: reduce) {
     #slogan.slogan-show { animation: none; opacity: 1; transform: translate(-50%,-50%); }
 }

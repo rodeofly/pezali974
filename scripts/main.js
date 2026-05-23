@@ -221,8 +221,8 @@ physics.onUpdateUI = () => {
     const solved = logic.checkSolved();
     if (solved && !victoryAnnounced) {
         victoryAnnounced = true;
-        ui.showToast(`🎉 Bravo ! Tu as isolé l'inconnue : <b>x = ${formatSolution(solved.value)}</b>`, 'success', 6000);
-        // Ligne « S = { … } » dans le journal de résolution.
+        // Message « Bravo » centré, gros et vert (variant victory).
+        ui.popSlogan(`🎉 Bravo !<br>𝑥 = ${formatSolution(solved.value)}`, 'victory');
         const solHTML = `<span class="math-part">S</span> <span class="math-equal">=</span> <span class="math-part">{${formatSolution(solved.value)}}</span>`;
         ui.commitHistoryLine(solHTML, null, 'eq-solution');
     } else if (!solved) {
