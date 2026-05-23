@@ -724,7 +724,7 @@ input[type=range] {
 
 /* --- BANQUE ADAPTATIVE (pouvoir +) --- */
 #power-bank {
-    background: rgba(30,30,36,0.55);
+    background: rgba(30,30,36,0.28);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.12);
@@ -765,7 +765,7 @@ input[type=range] {
 
 /* --- ÉCHELLE DE DIVISION (mode ÷) --- (position héritée du bloc unifié) */
 #division-scale {
-    background: rgba(30,30,36,0.55);
+    background: rgba(30,30,36,0.28);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 2px dashed #8e44ad;
@@ -872,12 +872,22 @@ input[type=range] {
     min-height: 80px;
     display: flex; flex-direction: row; align-items: center; justify-content: center;
     gap: var(--space-4);
-    background: rgba(30,30,36,0.55);
+    background: rgba(30,30,36,0.28);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 2px dashed #c0392b;
     border-bottom: none;
     pointer-events: none;
+    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+/* Feedback visuel : un poids est dragué au-dessus de la corbeille. */
+#center-trash.trash-hover {
+    background: rgba(231, 76, 60, 0.45);
+    border-color: #ff6b5e;
+    border-style: solid;
+    box-shadow: 0 -8px 30px rgba(231, 76, 60, 0.45),
+                inset 0 0 40px rgba(231, 76, 60, 0.35);
+    transform: translateX(-50%) scale(1.02);
 }
 @media (prefers-reduced-motion: reduce) {
     #power-bank:not(.hidden),

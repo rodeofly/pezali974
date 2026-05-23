@@ -110,6 +110,8 @@ export class InteractionManager {
         });
 
         Matter.Events.on(this.physicsWorld.mouseConstraint, 'enddrag', (event) => {
+            const trash = document.getElementById('center-trash');
+            if (trash) trash.classList.remove('trash-hover');
             if (this.subMode) this.endMirror();
             const body = event.body || this.draggedBody;
             // Tap sur un vestige « 0 » (peu de mouvement) → puff + suppression.
@@ -155,6 +157,14 @@ export class InteractionManager {
                     y: this.draggedBody.position.y
                 });
                 Matter.Body.setVelocity(this.mirrorBody, { x: 0, y: 0 });
+            }
+            // Feedback visuel : la corbeille s'allume si le poids dragué la survole.
+            if (this.subMode && this.draggedBody) {
+                const trash = document.getElementById('center-trash');
+                if (trash) {
+                    const over = this.physicsWorld.isOverTrash(this.draggedBody.position);
+                    trash.classList.toggle('trash-hover', over);
+                }
             }
         });
     }
