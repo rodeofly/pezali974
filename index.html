@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="EquaMotion974 — simulateur de balance interactif pour apprendre à résoudre des équations linéaires par la physique.">
     <meta name="theme-color" content="#1e1e24">
     <title>EquaMotion974 — Balance & Équations</title>
@@ -12,10 +12,9 @@
 
     <div id="ui-layer">
         <header>
-            <div id="equation-display" class="math-font">Chargement...</div>
-            <div id="balance-state">INITIALISATION</div>
-            <div style="margin-top: 10px; display:flex; gap:10px; justify-content:center;">
-                <button id="btn-new-eq" style="font-size:0.8rem; padding:5px 10px;">Nouvelle Équation</button>
+            <div class="header-eq-row">
+                <div id="equation-display" class="math-font">Chargement...</div>
+                <span id="balance-state" class="state-pill" data-state="init" title="État de la balance">·</span>
             </div>
         </header>
         <div id="toast-container"></div>
@@ -38,24 +37,27 @@
         <p class="settings-section">Génération aléatoire</p>
 
         <div class="setting-group">
-            <label class="checkbox-label">
-                <input type="checkbox" id="chk-fixed-x"> Fixer la valeur de <i>x</i>
-            </label>
-            <label class="slider-label">
-                <span id="lbl-range-title">Intervalle de <i>x</i> :</span>
-                <span id="lbl-max-x" class="val-badge red">[−10, +10]</span>
-            </label>
-            <input type="range" id="inp-max-x" min="1" max="20" value="10" step="1">
+            <label class="slider-label">Valeur de <i>x</i> : <span id="lbl-x-range" class="val-badge red">[1, 10]</span></label>
+            <div class="dual-range">
+                <input type="range" id="inp-min-x" min="-20" max="20" value="1" step="1" aria-label="x minimum">
+                <input type="range" id="inp-max-x" min="-20" max="20" value="10" step="1" aria-label="x maximum">
+            </div>
         </div>
 
         <div class="setting-group">
-            <label class="slider-label">Coefficient max de <i>x</i> : <span id="lbl-max-coeff" class="val-badge red">5</span></label>
-            <input type="range" id="inp-max-coeff" min="2" max="12" value="5" step="1">
+            <label class="slider-label">Coefficient de <i>x</i> : <span id="lbl-coeff-range" class="val-badge red">[1, 5]</span></label>
+            <div class="dual-range">
+                <input type="range" id="inp-min-coeff" min="-20" max="20" value="1" step="1" aria-label="Coefficient minimum">
+                <input type="range" id="inp-max-coeff" min="-20" max="20" value="5" step="1" aria-label="Coefficient maximum">
+            </div>
         </div>
 
         <div class="setting-group">
-            <label class="slider-label">Constante max : <span id="lbl-max-c" class="val-badge blue">20</span></label>
-            <input type="range" id="inp-max-c" min="5" max="50" value="20" step="1">
+            <label class="slider-label">Constante : <span id="lbl-const-range" class="val-badge blue">[1, 20]</span></label>
+            <div class="dual-range">
+                <input type="range" id="inp-min-c" min="-20" max="20" value="1" step="1" aria-label="Constante minimum">
+                <input type="range" id="inp-max-c" min="-20" max="20" value="20" step="1" aria-label="Constante maximum">
+            </div>
         </div>
 
         <button id="close-settings">Fermer</button>
@@ -81,6 +83,7 @@
     </div>
 
     <div id="floating-actions">
+        <button id="btn-new-eq" title="Nouvelle équation" aria-label="Nouvelle équation">🔄</button>
         <button id="btn-fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button>
         <button id="btn-help" title="Aide" aria-label="Aide">❔</button>
         <button id="btn-settings" title="Configuration" aria-label="Configuration">⚙️</button>
@@ -129,11 +132,26 @@
 
     <div id="solver-bar">
         <div class="solver-actions" id="powers">
-            <button class="btn-power" id="op-add" data-power="add" title="Banque : ajouter le même poids des deux côtés">🏦</button>
-            <button class="btn-power" id="op-sub" data-power="sub" title="− : retirer le même poids des deux côtés (corbeille)">−</button>
-            <button class="btn-power" id="power-mul" data-power="mul" title="× (à venir)">×</button>
-            <button class="btn-power" id="op-div" data-power="div" title="÷ : échelle de division (glisse, relâche)">÷</button>
-            <button class="btn-power" id="btn-hammer" data-power="hammer" aria-pressed="false" title="Marteau : découper un poids">🔨</button>
+            <div class="power-wrap">
+                <button class="btn-power" id="op-add" data-power="add" title="Banque : ajouter le même poids des deux côtés">🏦</button>
+                <span class="power-label">Banque</span>
+            </div>
+            <div class="power-wrap">
+                <button class="btn-power" id="op-sub" data-power="sub" title="− : retirer le même poids des deux côtés">−</button>
+                <span class="power-label">Retirer</span>
+            </div>
+            <div class="power-wrap">
+                <button class="btn-power" id="power-mul" data-power="mul" title="× (à venir)">×</button>
+                <span class="power-label">Multiplier</span>
+            </div>
+            <div class="power-wrap">
+                <button class="btn-power" id="op-div" data-power="div" title="÷ : échelle de division">÷</button>
+                <span class="power-label">Diviser</span>
+            </div>
+            <div class="power-wrap">
+                <button class="btn-power" id="btn-hammer" data-power="hammer" aria-pressed="false" title="Marteau : découper un poids">🔨</button>
+                <span class="power-label">Couper</span>
+            </div>
         </div>
     </div>
     <script type="module" src="./scripts/main.js"></script>

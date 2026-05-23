@@ -140,27 +140,27 @@ interactionManager.onSymmetricRemove = (data, symmetric) => {
     }
 };
 
-// Mode + (défaut) : banque visible, on ajoute (clic) et on agrège (fusion).
-// Mode − : la banque laisse place à la corbeille (déposer = retirer).
-// Le marteau est un mode à part. Un seul actif à la fois.
-let activeMode = 'add';
+// Aucun mode actif au démarrage : barre de pouvoirs neutre, rien d'ouvert.
+// La fusion (agréger deux poids identiques) reste active hors mode spécial
+// car c'est une mécanique de base du jeu.
+let activeMode = null;
 function applyMode(mode) {
     activeMode = mode;
+    const isAdd = mode === 'add';
     const isSub = mode === 'sub';
     const isDiv = mode === 'div';
     const isHammer = mode === 'hammer';
     interactionManager.setHammerMode(isHammer);
-    interactionManager.setFusionEnabled(mode === 'add');
+    interactionManager.setFusionEnabled(mode === null || isAdd);
     interactionManager.setSubtractMode(isSub);
-    physics.divisorPreview = 1;                   // pas d'aperçu de secteurs hors mode ÷ actif
+    physics.divisorPreview = 1;
     ui.setHammerActive(isHammer);
-    ui.setActiveOp(mode);                          // met en évidence l'op active (🏦 / − / ÷)
-    ui.setBankVisible(!isSub && !isDiv);           // banque masquée en − et ÷
-    ui.toggleCenterTrash(isSub);                   // corbeille en −
-    ui.setDivisionScaleVisible(isDiv);             // échelle en ÷
+    ui.setActiveOp(mode);
+    ui.setBankVisible(isAdd);
+    ui.toggleCenterTrash(isSub);
+    ui.setDivisionScaleVisible(isDiv);
 }
-// Bascule : si on désactive un mode, on revient au mode + (accueil).
-function toggleMode(mode) { applyMode(activeMode === mode ? 'add' : mode); }
+function toggleMode(mode) { applyMode(activeMode === mode ? null : mode); }
 
 // Construit la banque du pouvoir + : valeurs présentes sur la balance + leurs
 // inverses, plus les unités de base (x, -x, 1, -1).
@@ -211,8 +211,7 @@ ui.init({
     onCustomEquation: (l, r) => startCustomEquation(l, r),
     onReset: () => window.location.reload(),
     onModeSelect: (mode) => {
-        if (mode === 'add') applyMode('add');
-        else if (['sub', 'div', 'hammer'].includes(mode)) toggleMode(mode);
+        if (['add', 'sub', 'div', 'hammer'].includes(mode)) toggleMode(mode);
     },
     onConfigChange: (newConfig) => {
         logic.updateConfig(newConfig);
@@ -248,5 +247,10 @@ ui.init({
     }
 });
 
-applyMode('add'); // mode + par défaut (banque visible, agrégation active)
+applyMode(null);
+physics.onResized((saved) => {
+    logic.resetCounts();
+    saved.forEach(s => physics.addToZone(s.zone, s.type, s.value, weightSystem, true));
+    if (physics.onUpdateUI) physics.onUpdateUI();
+});
 startNewEquation();

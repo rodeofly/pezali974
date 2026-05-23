@@ -1,5 +1,5 @@
 import { BalanceModels } from './BalanceModels.js';
-import { C } from './Constants.js';
+import { C, computeBalanceDims } from './Constants.js';
 import Matter from 'matter-js';
 
 const { Engine, Render, Runner, World, Bodies, Body, Composite, Mouse, MouseConstraint, Events } = Matter;
@@ -10,12 +10,13 @@ export class PhysicsWorld {
         this.container = document.getElementById(containerId);
         this.width = this.container.clientWidth;
         this.height = this.container.clientHeight;
+        computeBalanceDims(this.width, this.height);
         this.engine = null;
         this.leftTray = null;
         this.rightTray = null;
-        // Base des bacs positionnée pour que la boîte (base + parois) soit
-        // centrée verticalement sur l'écran.
-        this.trayBaseY = (this.height / 2) + (C.BALANCE.TRAY_WALL_HEIGHT / 2);
+        // Bacs centrés verticalement, légèrement décalés sous la moitié
+        // d'écran pour laisser de la place au fléau et à l'équation.
+        this.trayBaseY = (this.height * 0.58) + (C.BALANCE.TRAY_WALL_HEIGHT / 2);
         this.frameCounter = 0;
         // Corps temporairement exclu du pesage.
         this.ignoredBody = null;
@@ -60,6 +61,7 @@ export class PhysicsWorld {
         this.render = render;
         
         Events.on(render, 'afterRender', () => {
+            this.renderBalanceFrame();
             this.renderLabels();
             this.renderDivisionSectors();
         });
@@ -75,6 +77,140 @@ export class PhysicsWorld {
         Events.on(this.engine, 'beforeUpdate', () => {
             this.syncTrayPositions();
         });
+
+        this._installResizeListener();
+    }
+
+    _installResizeListener() {
+        let t = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(t);
+            t = setTimeout(() => this.resize(), 120);
+        });
+        window.addEventListener('orientationchange', () => {
+            clearTimeout(t);
+            t = setTimeout(() => this.resize(), 200);
+        });
+    }
+
+    /**
+     * Recalcule les dimensions de la balance et du canvas suite à un resize
+     * de la fenêtre. Les poids présents sont conservés ; on les replace dans
+     * la fenêtre si la nouvelle taille les a laissés en dehors.
+     */
+    resize() {
+        const newW = this.container.clientWidth;
+        const newH = this.container.clientHeight;
+        if (newW === this.width && newH === this.height) return;
+
+        this.width = newW;
+        this.height = newH;
+        computeBalanceDims(newW, newH);
+        this.trayBaseY = (newH * 0.58) + (C.BALANCE.TRAY_WALL_HEIGHT / 2);
+
+        this.render.canvas.width = newW;
+        this.render.canvas.height = newH;
+        this.render.options.width = newW;
+        this.render.options.height = newH;
+        Render.setPixelRatio(this.render, window.devicePixelRatio || 1);
+
+        const weights = Composite.allBodies(this.engine.world).filter(b => b.label === 'weight');
+        const saved = weights.map(b => ({
+            type: b.logicData?.type,
+            value: b.logicData?.value,
+            zone: b.lastZone || this.detectZone(b)
+        })).filter(s => s.type && s.zone);
+
+        World.clear(this.engine.world, false);
+        this.createBoundaries();
+        this.createBalance('simple');
+
+        if (this.mouseConstraint) World.add(this.engine.world, this.mouseConstraint);
+
+        if (this._onResized) this._onResized(saved);
+    }
+
+    /**
+     * Callback appelé en fin de resize avec la liste des poids à rétablir.
+     * Permet à main.js de remettre la logique à zéro avant de respawner.
+     */
+    onResized(fn) { this._onResized = fn; }
+
+    /**
+     * Dessine le fléau (barre tilable entre les deux plateaux), un mât central
+     * et un pivot triangulaire. Le fléau s'incline naturellement parce que
+     * les plateaux bougent en Y selon le déséquilibre.
+     */
+    renderBalanceFrame() {
+        if (!this.leftTray || !this.rightTray) return;
+        const ctx = this.render.context;
+        const cx = this.width / 2;
+        const wallH = C.BALANCE.TRAY_WALL_HEIGHT;
+        const lx = this.leftTray.position.x;
+        const rx = this.rightTray.position.x;
+        const ly = this.leftTray.position.y - wallH / 2;
+        const ry = this.rightTray.position.y - wallH / 2;
+        const beamY = (ly + ry) / 2 - 12;
+        const pivotBaseY = this.trayBaseY + 70;
+
+        ctx.save();
+
+        ctx.strokeStyle = 'rgba(189,195,199,0.55)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(lx, ly);
+        ctx.lineTo(lx, ly - 22);
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx, ry - 22);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const gradient = ctx.createLinearGradient(lx, 0, rx, 0);
+        gradient.addColorStop(0, C.COLORS.WOOD_DARK);
+        gradient.addColorStop(0.5, '#6b4f3f');
+        gradient.addColorStop(1, C.COLORS.WOOD_DARK);
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(lx, ly - 22);
+        ctx.lineTo(rx, ry - 22);
+        ctx.stroke();
+
+        ctx.fillStyle = C.COLORS.GOLD_LIGHT;
+        ctx.beginPath();
+        ctx.arc(cx, beamY - 4, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = C.COLORS.GOLD_DARK;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.strokeStyle = C.COLORS.WOOD_DARK;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cx, beamY - 4);
+        ctx.lineTo(cx, pivotBaseY - 4);
+        ctx.stroke();
+
+        const pivotW = 90;
+        const pivotH = 50;
+        ctx.fillStyle = C.COLORS.WOOD_DARK;
+        ctx.strokeStyle = '#2b1f18';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, pivotBaseY - pivotH);
+        ctx.lineTo(cx - pivotW / 2, pivotBaseY);
+        ctx.lineTo(cx + pivotW / 2, pivotBaseY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#2b1f18';
+        ctx.fillRect(cx - pivotW * 0.7, pivotBaseY, pivotW * 1.4, 8);
+
+        ctx.restore();
     }
 
     renderLabels() {
@@ -288,7 +424,10 @@ export class PhysicsWorld {
                 // Un poids tenu à la souris (ou son jumeau miroir) ne pèse pas :
                 // il est « dans la main ». Évite la boucle : retirer un poids allège
                 // le bac, qui remonte, rattrape le poids, qui repèse, etc.
-                const currentZone = (body === draggedBody || body === this.ignoredBody) ? null : this.detectZone(body);
+                // Un poids tenu, ignoré, ou en attente d'atterrissage (vient
+                // d'être relâché et n'a pas encore touché un plateau) ne pèse pas.
+                const inHand = body === draggedBody || body === this.ignoredBody || body.needsLanding;
+                const currentZone = inHand ? null : this.detectZone(body);
                 const lastZone = body.lastZone || null;
 
                 // Gate : un poids n'est pris en compte qu'une fois POSÉ (vitesse

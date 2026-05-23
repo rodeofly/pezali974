@@ -14,17 +14,18 @@ export class UIManager {
         const btnSettings = document.getElementById('btn-settings');
         const closeSettings = document.getElementById('close-settings');
 
-        // SLIDERS & CONTROLS
+        // SLIDERS & CONTROLS — trois intervalles uniformes [min, max]
+        const inpMinX = document.getElementById('inp-min-x');
         const inpMaxX = document.getElementById('inp-max-x');
-        const lblMaxX = document.getElementById('lbl-max-x');
-        const chkFixedX = document.getElementById('chk-fixed-x');
-        const lblRangeTitle = document.getElementById('lbl-range-title');
+        const lblXRange = document.getElementById('lbl-x-range');
 
+        const inpMinCoeff = document.getElementById('inp-min-coeff');
         const inpMaxCoeff = document.getElementById('inp-max-coeff');
-        const lblMaxCoeff = document.getElementById('lbl-max-coeff');
+        const lblCoeffRange = document.getElementById('lbl-coeff-range');
 
+        const inpMinC = document.getElementById('inp-min-c');
         const inpMaxC = document.getElementById('inp-max-c');
-        const lblMaxC = document.getElementById('lbl-max-c');
+        const lblConstRange = document.getElementById('lbl-const-range');
 
         const inpCustomLeft = document.getElementById('inp-custom-left');
         const inpCustomRight = document.getElementById('inp-custom-right');
@@ -72,24 +73,6 @@ export class UIManager {
             }
         });
 
-        // --- RÉGLAGE DE x : fixé à une valeur, ou tiré dans un intervalle [−N, +N] ---
-        const refreshXLabels = () => {
-            const isFixed = chkFixedX.checked;
-            // Mode fixe : x ∈ [−20, 20]. Mode intervalle : N ∈ [1, 20].
-            if (isFixed && inpMaxX.min !== "-20") { inpMaxX.min = "-20"; inpMaxX.max = "20"; }
-            if (!isFixed && inpMaxX.min !== "1") {
-                inpMaxX.min = "1"; inpMaxX.max = "20";
-                if (parseInt(inpMaxX.value) < 1) inpMaxX.value = "10";
-            }
-            const val = parseInt(inpMaxX.value);
-            lblRangeTitle.innerHTML = isFixed ? "Valeur de <i>x</i> :" : "Intervalle de <i>x</i> :";
-            lblMaxX.innerText = isFixed ? `${val}` : `[−${val}, +${val}]`;
-        };
-        const sendXConfig = () => {
-            refreshXLabels();
-            if (callbacks.onConfigChange) callbacks.onConfigChange({ fixedX: chkFixedX.checked, targetX: parseInt(inpMaxX.value) });
-        };
-
         btnLoadCustom.addEventListener('click', () => {
             if (callbacks.onCustomEquation) {
                 callbacks.onCustomEquation(inpCustomLeft.value, inpCustomRight.value);
@@ -97,22 +80,37 @@ export class UIManager {
             }
         });
 
-        // x : label en direct (input), application à la fin (change)
-        inpMaxX.addEventListener('input', refreshXLabels);
-        inpMaxX.addEventListener('change', sendXConfig);
-        chkFixedX.addEventListener('change', sendXConfig);
+        // --- Helpers génériques pour les 3 dual-sliders ---
+        // Si l'utilisateur croise les deux curseurs, on rapproche l'autre d'un cran
+        // pour garder min ≤ max sans bloquer le geste.
+        const clampPair = (whichChanged, lowerEl, upperEl) => {
+            const lo = parseInt(lowerEl.value);
+            const hi = parseInt(upperEl.value);
+            if (lo > hi) {
+                if (whichChanged === 'lower') upperEl.value = `${lo}`;
+                else lowerEl.value = `${hi}`;
+            }
+        };
+        const fmtInt = (v) => (v < 0 ? `−${Math.abs(v)}` : `${v}`);
+        const wireDualRange = (lowerEl, upperEl, lblEl, configKey) => {
+            const refresh = () => {
+                lblEl.innerText = `[${fmtInt(parseInt(lowerEl.value))}, ${fmtInt(parseInt(upperEl.value))}]`;
+            };
+            const send = () => {
+                if (callbacks.onConfigChange) callbacks.onConfigChange({
+                    [configKey]: { min: parseInt(lowerEl.value), max: parseInt(upperEl.value) }
+                });
+            };
+            lowerEl.addEventListener('input', () => { clampPair('lower', lowerEl, upperEl); refresh(); });
+            upperEl.addEventListener('input', () => { clampPair('upper', lowerEl, upperEl); refresh(); });
+            lowerEl.addEventListener('change', send);
+            upperEl.addEventListener('change', send);
+            refresh();
+        };
 
-        // Coefficient max de x (a, c dans ax + b = cx + d)
-        inpMaxCoeff.addEventListener('input', () => { lblMaxCoeff.innerText = inpMaxCoeff.value; });
-        inpMaxCoeff.addEventListener('change', () => {
-            if (callbacks.onConfigChange) callbacks.onConfigChange({ coeffRange: { min: 1, max: parseInt(inpMaxCoeff.value) } });
-        });
-
-        // Constante max (b, d)
-        inpMaxC.addEventListener('input', () => { lblMaxC.innerText = inpMaxC.value; });
-        inpMaxC.addEventListener('change', () => {
-            if (callbacks.onConfigChange) callbacks.onConfigChange({ constantRange: { min: 1, max: parseInt(inpMaxC.value) } });
-        });
+        wireDualRange(inpMinX, inpMaxX, lblXRange, 'xRange');
+        wireDualRange(inpMinCoeff, inpMaxCoeff, lblCoeffRange, 'coeffRange');
+        wireDualRange(inpMinC, inpMaxC, lblConstRange, 'constantRange');
 
         this.btnNewEq.addEventListener('click', () => callbacks.onNewEquation());
 
@@ -307,11 +305,13 @@ export class UIManager {
         chip.textContent = this.formatWeight(logicData);
         container.appendChild(chip);
         container.scrollTop = container.scrollHeight;
+        const zoneEl = document.getElementById(`trash-${zone}`);
+        if (zoneEl) zoneEl.classList.add('has-items');
     }
 
-    /** Vide les deux zones « détruits » (nouvelle équation). */
     clearTrash() {
         document.querySelectorAll('.trash-items').forEach(el => { el.innerHTML = ''; });
+        document.querySelectorAll('.trash-zone').forEach(el => el.classList.remove('has-items'));
     }
 
     /**
@@ -337,12 +337,14 @@ export class UIManager {
 
     updateState(status) {
         const map = {
-            'EQUILIBRIUM': { text: '⚖️ ÉQUILIBRE', color: '#2ecc71' },
-            'LEFT_HEAVY': { text: '⬅️ GAUCHE TROP LOURD', color: '#e74c3c' },
-            'RIGHT_HEAVY': { text: 'DROITE TROP LOURD ➡️', color: '#e74c3c' }
+            'EQUILIBRIUM': { dot: '⚖', title: 'Équilibre', state: 'eq' },
+            'LEFT_HEAVY':  { dot: '◀', title: 'Gauche trop lourd', state: 'left' },
+            'RIGHT_HEAVY': { dot: '▶', title: 'Droite trop lourd', state: 'right' }
         };
-        const current = map[status] || { text: '...', color: '#fff' };
-        this.stateEl.innerText = current.text;
-        this.stateEl.style.color = current.color;
+        const current = map[status] || { dot: '·', title: 'En attente', state: 'init' };
+        if (!this.stateEl) return;
+        this.stateEl.textContent = current.dot;
+        this.stateEl.setAttribute('data-state', current.state);
+        this.stateEl.setAttribute('title', current.title);
     }
 }

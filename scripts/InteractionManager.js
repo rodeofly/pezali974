@@ -109,8 +109,14 @@ export class InteractionManager {
             if (this.subMode) this.beginMirror(event.body);
         });
 
-        Matter.Events.on(this.physicsWorld.mouseConstraint, 'enddrag', () => {
+        Matter.Events.on(this.physicsWorld.mouseConstraint, 'enddrag', (event) => {
             if (this.subMode) this.endMirror();
+            // Le poids relâché ne pèse pas tant qu'il n'a pas physiquement touché
+            // un plateau ou un autre poids posé. Évite la "répulsion" perçue quand
+            // on relâche à l'intérieur même du plateau (le poids serait recompté
+            // immédiatement, et le plateau redescendrait avant le contact visuel).
+            const body = event.body || this.draggedBody;
+            if (body && body.label === 'weight') body.needsLanding = true;
             this.draggedBody = null;
             this.dragStartTime = 0;
             this._dragStart = null;
@@ -136,6 +142,29 @@ export class InteractionManager {
     }
 
     setupCollisions() {
+        // Atterrissage : un poids relâché ne pèse qu'au premier contact solide.
+        // NB : un plateau est un compound body (base + parois) ; les collisions
+        // référencent les parts, pas le parent → il faut tester other.parent.label.
+        const isLandingSurface = (other) => {
+            const lbl = other.label;
+            const parentLbl = other.parent && other.parent !== other ? other.parent.label : null;
+            if (lbl === 'tray' || parentLbl === 'tray') return true;
+            if (lbl === 'ground' || parentLbl === 'ground') return true;
+            return false;
+        };
+        Matter.Events.on(this.engine, 'collisionActive', (event) => {
+            event.pairs.forEach(pair => {
+                const a = pair.bodyA, b = pair.bodyB;
+                const land = (body, other) => {
+                    if (!body.needsLanding) return;
+                    if (isLandingSurface(other)) { body.needsLanding = false; return; }
+                    if (other.label === 'weight' && !other.needsLanding) body.needsLanding = false;
+                };
+                land(a, b);
+                land(b, a);
+            });
+        });
+
         Matter.Events.on(this.engine, 'collisionActive', (event) => {
             if (!this.fusionEnabled) return; // pas d'agrégation hors mode +
 

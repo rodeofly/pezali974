@@ -21,12 +21,12 @@ export const C = {
         WEIGHTS_LOCKED: 0x0010  // poids posé dans un bac : il pèse, mais n'est plus attrapable
     },
 
-    // --- DIMENSIONS DES BACS ---
+    // --- DIMENSIONS DES BACS (valeurs par défaut, écrasées par computeBalanceDims) ---
     BALANCE: {
-        TRAY_WIDTH: 280,        // largeur d'un bac
-        TRAY_WALL_HEIGHT: 130,  // hauteur des parois
-        TRAY_OFFSET: 320,       // distance horizontale depuis le centre
-        MAX_TRAVEL: 90          // déplacement vertical max d'un bac (position de repos calculée au centre de l'écran)
+        TRAY_WIDTH: 280,
+        TRAY_WALL_HEIGHT: 130,
+        TRAY_OFFSET: 320,
+        MAX_TRAVEL: 90
     },
 
     // --- MOUVEMENT DES BACS ---
@@ -56,3 +56,21 @@ export const C = {
         FONT: "bold 20px 'Times New Roman', serif" // Style LaTeX
     }
 };
+
+/**
+ * Calcule des dimensions de balance qui suivent la taille du viewport.
+ * Mute C.BALANCE in place et retourne aussi les valeurs.
+ */
+export function computeBalanceDims(width, height) {
+    const trayW = Math.max(170, Math.min(360, width * 0.26));
+    const wallH = Math.max(90, Math.min(170, height * 0.18));
+    const maxOffset = (width - trayW) / 2 - 60;
+    const offset = Math.max(trayW * 0.65, Math.min(width * 0.30, maxOffset));
+    const maxTravel = Math.max(50, Math.min(120, height * 0.10));
+
+    C.BALANCE.TRAY_WIDTH = trayW;
+    C.BALANCE.TRAY_WALL_HEIGHT = wallH;
+    C.BALANCE.TRAY_OFFSET = offset;
+    C.BALANCE.MAX_TRAVEL = maxTravel;
+    return C.BALANCE;
+}

@@ -2,9 +2,8 @@ export class EquationEngine {
   constructor() {
     this.state = { lhs: [], rhs: [], xValue: 0 };
     this.config = {
-      fixedX: false,
-      targetX: 10, 
-      coeffRange: { min: 1, max: 5 }, 
+      xRange: { min: 1, max: 10 },
+      coeffRange: { min: 1, max: 5 },
       constantRange: { min: 1, max: 20 }
     };
   }
@@ -83,35 +82,49 @@ export class EquationEngine {
 
   // --- GÉNÉRATION AUTOMATIQUE ---
   generateNewEquation() {
-    let x;
-    if (this.config.fixedX) {
-        x = this.config.targetX;
-    } else {
-        x = this.randomInt(-this.config.targetX, this.config.targetX);
-        while (x === 0) x = this.randomInt(-this.config.targetX, this.config.targetX);
-    }
-
+    const xMin = this.config.xRange.min;
+    const xMax = this.config.xRange.max;
     const minCoeff = this.config.coeffRange.min;
     const maxCoeff = this.config.coeffRange.max;
+    const minC = this.config.constantRange.min;
+    const maxC = this.config.constantRange.max;
 
-    let a = this.randomInt(minCoeff, maxCoeff);
-    let c = a;
-    if (minCoeff !== maxCoeff) {
-        while (c === a) c = this.randomInt(minCoeff, maxCoeff);
+    // x ≠ 0 (sinon il n'y a pas d'inconnue à isoler). Si l'intervalle ne
+    // contient que 0, on rabat sur 1.
+    let x;
+    if (xMin === 0 && xMax === 0) {
+        x = 1;
+    } else {
+        let tries = 0;
+        do { x = this.randomInt(xMin, xMax); tries++; }
+        while (x === 0 && tries < 50);
+        if (x === 0) x = xMax > 0 ? 1 : -1;
     }
 
-    let b = this.randomInt(1, this.config.constantRange.max);
-    let d = (a * x) + b - (c * x);
+    // a et c : différents (sinon pas de solution unique) et pas tous deux nuls
+    // (sinon plus aucune inconnue dans l'équation).
+    let a, c;
+    let tries = 0;
+    do {
+        a = this.randomInt(minCoeff, maxCoeff);
+        c = this.randomInt(minCoeff, maxCoeff);
+        tries++;
+    } while ((a === c || (a === 0 && c === 0)) && tries < 100);
+    if (a === c) c = a + (a < maxCoeff ? 1 : -1);
+    if (a === 0 && c === 0) a = 1;
+
+    const b = this.randomInt(minC, maxC);
+    const d = (a * x) + b - (c * x);
 
     this.state.xValue = x;
-    this.resetCounts(); 
+    this.resetCounts();
 
     if (a !== 0) this.updateWeight('left', 'X', a);
     if (b !== 0) this.updateWeight('left', 'known', b);
     if (c !== 0) this.updateWeight('right', 'X', c);
     if (d !== 0) this.updateWeight('right', 'known', d);
 
-    return { a, b, c, d }; 
+    return { a, b, c, d };
   }
 
   resetCounts() { this.state.lhs = []; this.state.rhs = []; }
