@@ -112,6 +112,34 @@ export class UIManager {
         wireDualRange(inpMinCoeff, inpMaxCoeff, lblCoeffRange, 'coeffRange');
         wireDualRange(inpMinC, inpMaxC, lblConstRange, 'constantRange');
 
+        // --- Presets de cycle ---
+        const applyPreset = (vals) => {
+            inpMinX.value     = String(vals.xRange.min);
+            inpMaxX.value     = String(vals.xRange.max);
+            inpMinCoeff.value = String(vals.coeffRange.min);
+            inpMaxCoeff.value = String(vals.coeffRange.max);
+            inpMinC.value     = String(vals.constantRange.min);
+            inpMaxC.value     = String(vals.constantRange.max);
+            // Rafraîchit chaque dual-range (réutilise les listeners déjà branchés)
+            [inpMinX, inpMaxX, inpMinCoeff, inpMaxCoeff, inpMinC, inpMaxC]
+                .forEach(el => el.dispatchEvent(new Event('input')));
+            if (callbacks.onConfigChange) callbacks.onConfigChange(vals);
+        };
+        const btnC3 = document.getElementById('btn-preset-cycle3');
+        const btnC4 = document.getElementById('btn-preset-cycle4');
+        if (btnC3) btnC3.addEventListener('click', () => applyPreset({
+            xRange:        { min: 1, max: 10 },
+            coeffRange:    { min: 1, max: 5 },
+            constantRange: { min: 1, max: 20 },
+            positiveOnly:  true
+        }));
+        if (btnC4) btnC4.addEventListener('click', () => applyPreset({
+            xRange:        { min: -20, max: 20 },
+            coeffRange:    { min: -20, max: 20 },
+            constantRange: { min: -20, max: 20 },
+            positiveOnly:  false
+        }));
+
         this.btnNewEq.addEventListener('click', () => callbacks.onNewEquation());
 
         // --- SUPER-POUVOIRS (− mode à invoquer, ÷ coup ponctuel, × à venir) ---
@@ -253,10 +281,11 @@ export class UIManager {
         this.renderEquation();
     }
 
-    /** Ajoute une ligne (résultat d'une opération op), si elle diffère de la précédente. */
-    commitHistoryLine(htmlString, op = null) {
+    /** Ajoute une ligne (résultat d'une opération op), si elle diffère de la précédente.
+     *  cssClass : classe additionnelle pour styliser la ligne (ex: 'eq-solution'). */
+    commitHistoryLine(htmlString, op = null, cssClass = '') {
         const last = this.history[this.history.length - 1];
-        if (htmlString && (!last || htmlString !== last.html)) this.history.push({ html: htmlString, op });
+        if (htmlString && (!last || htmlString !== last.html)) this.history.push({ html: htmlString, op, cssClass });
         this.currentLive = htmlString;
         this.renderEquation();
     }
@@ -274,7 +303,8 @@ export class UIManager {
         const parts = [];
         this.history.forEach((entry, i) => {
             if (i > 0 && entry.op) parts.push(this.renderOpRow(entry.op));
-            parts.push(`<div class="eq-line${i === 0 ? ' eq-origin' : ''}">${entry.html}</div>`);
+            const cls = (i === 0 ? ' eq-origin' : '') + (entry.cssClass ? ' ' + entry.cssClass : '');
+            parts.push(`<div class="eq-line${cls}">${entry.html}</div>`);
         });
         const last = this.history[this.history.length - 1];
         // Ligne « en direct » (état courant) si elle diffère de la dernière étape

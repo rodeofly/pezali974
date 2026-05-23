@@ -111,11 +111,29 @@ export class InteractionManager {
 
         Matter.Events.on(this.physicsWorld.mouseConstraint, 'enddrag', (event) => {
             if (this.subMode) this.endMirror();
+            const body = event.body || this.draggedBody;
+            // Tap sur un vestige « 0 » (peu de mouvement) → puff + suppression.
+            if (body && body.label === 'weight' && body.logicData
+                && body.logicData.value === 0 && this._dragStart) {
+                const dx = body.position.x - this._dragStart.x;
+                const dy = body.position.y - this._dragStart.y;
+                if (dx * dx + dy * dy < 100) {
+                    this.spawnPuff(body.position.x, body.position.y);
+                    if (body.lastZone) this.logicEngine.updateWeight(body.lastZone, body.logicData.type, 0, 'remove');
+                    body.isRemoved = true;
+                    Matter.World.remove(this.engine.world, body);
+                    this.draggedBody = null;
+                    this.dragStartTime = 0;
+                    this._dragStart = null;
+                    this.physicsWorld.weightlessBody = null;
+                    if (this.physicsWorld.onUpdateUI) this.physicsWorld.onUpdateUI();
+                    return;
+                }
+            }
             // Le poids relâché ne pèse pas tant qu'il n'a pas physiquement touché
             // un plateau ou un autre poids posé. Évite la "répulsion" perçue quand
             // on relâche à l'intérieur même du plateau (le poids serait recompté
             // immédiatement, et le plateau redescendrait avant le contact visuel).
-            const body = event.body || this.draggedBody;
             if (body && body.label === 'weight') body.needsLanding = true;
             this.draggedBody = null;
             this.dragStartTime = 0;
@@ -201,7 +219,7 @@ export class InteractionManager {
     }
 
     performAnnihilation(bodyA, bodyB) {
-        if (bodyA.isRemoved || bodyB.isRemoved) return; 
+        if (bodyA.isRemoved || bodyB.isRemoved) return;
 
         if (bodyA.lastZone) this.logicEngine.updateWeight(bodyA.lastZone, bodyA.logicData.type, bodyA.logicData.value, 'remove');
         if (bodyB.lastZone) this.logicEngine.updateWeight(bodyB.lastZone, bodyB.logicData.type, bodyB.logicData.value, 'remove');
@@ -211,16 +229,18 @@ export class InteractionManager {
         const newX = (bodyA.position.x + bodyB.position.x) / 2;
         const newY = (bodyA.position.y + bodyB.position.y) / 2;
 
+        this.spawnPuff(newX, newY);
+
         bodyA.isRemoved = true; bodyB.isRemoved = true;
         Matter.World.remove(this.engine.world, [bodyA, bodyB]);
 
-        if (newVal !== 0) {
-            const newBody = this.weightSystem.create(type, newX, newY, newVal);
-            Matter.Body.setVelocity(newBody, { x: 0, y: 0 });
-            newBody.lastZone = null;
-            Matter.World.add(this.engine.world, newBody);
-            if (this.draggedBody) this.draggedBody = newBody;
-        }
+        // Toujours créer le corps résultat, même si la valeur est 0 :
+        // le « 0 » reste visible (vestige), un tap dessus le fait poufer.
+        const newBody = this.weightSystem.create(type, newX, newY, newVal);
+        Matter.Body.setVelocity(newBody, { x: 0, y: 0 });
+        newBody.lastZone = null;
+        Matter.World.add(this.engine.world, newBody);
+        if (this.draggedBody) this.draggedBody = newBody;
     }
     
     performFusion(bodyA, bodyB) {
@@ -233,6 +253,8 @@ export class InteractionManager {
         const newY = (bodyA.position.y + bodyB.position.y) / 2;
         const type = bodyA.logicData.type;
         const newVal = bodyA.logicData.value + bodyB.logicData.value;
+
+        this.spawnPuff(newX, newY);
 
         bodyA.isRemoved = true; bodyB.isRemoved = true;
         Matter.World.remove(this.engine.world, [bodyA, bodyB]);
@@ -260,11 +282,42 @@ export class InteractionManager {
             if (weights.length) this.hammerSplit(weights[0]);
         });
 
-        // Double-clic : division (uniquement hors mode marteau).
+        // Double-clic souris : division (uniquement hors mode marteau).
         this.render.canvas.addEventListener('dblclick', (event) => {
             if (this.hammerMode) return;
             pointToWeights(event).forEach(body => this.performDivision(body));
         });
+
+        // Double-tap tactile : équivalent du dblclick (le navigateur ne le
+        // synthétise pas quand touch-action est désactivé sur le canvas).
+        let tapStart = null;
+        let lastTap = { time: 0, x: 0, y: 0 };
+        this.render.canvas.addEventListener('touchstart', (event) => {
+            if (event.touches.length !== 1) { tapStart = null; return; }
+            const t = event.touches[0];
+            tapStart = { time: Date.now(), x: t.clientX, y: t.clientY };
+        }, { passive: true });
+        this.render.canvas.addEventListener('touchend', (event) => {
+            if (this.hammerMode || !tapStart) { tapStart = null; return; }
+            const t = event.changedTouches[0];
+            const dt = Date.now() - tapStart.time;
+            const moved = Math.hypot(t.clientX - tapStart.x, t.clientY - tapStart.y);
+            tapStart = null;
+            if (dt > 280 || moved > 12) return; // c'était un drag, pas un tap
+            const now = Date.now();
+            const distFromLast = Math.hypot(t.clientX - lastTap.x, t.clientY - lastTap.y);
+            if (now - lastTap.time < 350 && distFromLast < 40) {
+                // 2e tap : double-tap → division au point relâché
+                const rect = this.render.canvas.getBoundingClientRect();
+                const bodies = Matter.Composite.allBodies(this.engine.world);
+                Matter.Query.point(bodies, { x: t.clientX - rect.left, y: t.clientY - rect.top })
+                    .filter(b => b.label === 'weight')
+                    .forEach(body => this.performDivision(body));
+                lastTap = { time: 0, x: 0, y: 0 };
+            } else {
+                lastTap = { time: now, x: t.clientX, y: t.clientY };
+            }
+        }, { passive: true });
     }
 
     /** Détruit un poids et le consigne dans la zone « détruits » de son côté. */
@@ -346,7 +399,29 @@ export class InteractionManager {
     performDivision(body) {
         if (body.isRemoved || !body.logicData) return;
         if (Math.abs(body.logicData.value) <= 1) return;
+        // Effet de vaporisation au point de division.
+        this.spawnPuff(body.position.x, body.position.y);
         // Même découpe que le marteau : exactement 2 morceaux (valeur d'en face + reste).
         this.spawnParts(body, this.computeSplitParts(body));
+    }
+
+    /** Petit nuage de vapeur (cœur + 8 lobes) qui pop puis s'estompe en ~1.1 s. */
+    spawnPuff(x, y) {
+        const canvasRect = this.render.canvas.getBoundingClientRect();
+        const px = x + canvasRect.left;
+        const py = y + canvasRect.top;
+        const puff = document.createElement('div');
+        puff.className = 'puff';
+        puff.style.left = `${px}px`;
+        puff.style.top = `${py}px`;
+        puff.setAttribute('aria-hidden', 'true');
+        puff.innerHTML =
+            '<span class="core"></span>' +
+            '<span class="cloud c1"></span><span class="cloud c2"></span>' +
+            '<span class="cloud c3"></span><span class="cloud c4"></span>' +
+            '<span class="cloud c5"></span><span class="cloud c6"></span>' +
+            '<span class="cloud c7"></span><span class="cloud c8"></span>';
+        document.body.appendChild(puff);
+        setTimeout(() => puff.remove(), 1300);
     }
 }

@@ -36,27 +36,34 @@
         <hr class="settings-sep">
         <p class="settings-section">Génération aléatoire</p>
 
-        <div class="setting-group">
-            <label class="slider-label">Valeur de <i>x</i> : <span id="lbl-x-range" class="val-badge red">[1, 10]</span></label>
-            <div class="dual-range">
-                <input type="range" id="inp-min-x" min="-20" max="20" value="1" step="1" aria-label="x minimum">
-                <input type="range" id="inp-max-x" min="-20" max="20" value="10" step="1" aria-label="x maximum">
-            </div>
+        <div class="preset-row">
+            <button id="btn-preset-cycle3" class="btn-preset" title="Tout positif, solution toujours positive">Cycle 3</button>
+            <button id="btn-preset-cycle4" class="btn-preset" title="Intervalle complet [−20, +20]">Cycle 4</button>
         </div>
 
-        <div class="setting-group">
-            <label class="slider-label">Coefficient de <i>x</i> : <span id="lbl-coeff-range" class="val-badge red">[1, 5]</span></label>
-            <div class="dual-range">
-                <input type="range" id="inp-min-coeff" min="-20" max="20" value="1" step="1" aria-label="Coefficient minimum">
-                <input type="range" id="inp-max-coeff" min="-20" max="20" value="5" step="1" aria-label="Coefficient maximum">
+        <div class="ranges-grid">
+            <div class="setting-group">
+                <label class="slider-label">Valeur de <i>x</i> : <span id="lbl-x-range" class="val-badge red">[1, 10]</span></label>
+                <div class="dual-range">
+                    <input type="range" id="inp-min-x" min="-20" max="20" value="1" step="1" aria-label="x minimum">
+                    <input type="range" id="inp-max-x" min="-20" max="20" value="10" step="1" aria-label="x maximum">
+                </div>
             </div>
-        </div>
 
-        <div class="setting-group">
-            <label class="slider-label">Constante : <span id="lbl-const-range" class="val-badge blue">[1, 20]</span></label>
-            <div class="dual-range">
-                <input type="range" id="inp-min-c" min="-20" max="20" value="1" step="1" aria-label="Constante minimum">
-                <input type="range" id="inp-max-c" min="-20" max="20" value="20" step="1" aria-label="Constante maximum">
+            <div class="setting-group">
+                <label class="slider-label">Coefficient de <i>x</i> : <span id="lbl-coeff-range" class="val-badge red">[1, 5]</span></label>
+                <div class="dual-range">
+                    <input type="range" id="inp-min-coeff" min="-20" max="20" value="1" step="1" aria-label="Coefficient minimum">
+                    <input type="range" id="inp-max-coeff" min="-20" max="20" value="5" step="1" aria-label="Coefficient maximum">
+                </div>
+            </div>
+
+            <div class="setting-group">
+                <label class="slider-label">Constante : <span id="lbl-const-range" class="val-badge blue">[1, 20]</span></label>
+                <div class="dual-range">
+                    <input type="range" id="inp-min-c" min="-20" max="20" value="1" step="1" aria-label="Constante minimum">
+                    <input type="range" id="inp-max-c" min="-20" max="20" value="20" step="1" aria-label="Constante maximum">
+                </div>
             </div>
         </div>
 
@@ -83,7 +90,7 @@
     </div>
 
     <div id="floating-actions">
-        <button id="btn-new-eq" title="Nouvelle équation" aria-label="Nouvelle équation">🔄</button>
+        <button id="btn-new-eq" title="Nouvelle équation" aria-label="Nouvelle équation">↻</button>
         <button id="btn-fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button>
         <button id="btn-help" title="Aide" aria-label="Aide">❔</button>
         <button id="btn-settings" title="Configuration" aria-label="Configuration">⚙️</button>

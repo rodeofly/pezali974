@@ -49,13 +49,17 @@ export class WeightSystem {
             collisionFilter: weightFilter
         };
 
-        if (type === 'X') {
-            const baseSize = 40;
+        if (value === 0) {
+            // Vestige d'annihilation : petite trace neutre à faire disparaître d'un tap.
+            if (type === 'X') body = Matter.Bodies.rectangle(x, y, 38, 38, commonOptions);
+            else body = Matter.Bodies.circle(x, y, 16, commonOptions);
+        } else if (type === 'X') {
+            const baseSize = 72;
             // Taille logarithmique pour éviter les géants
-            const size = baseSize + Math.log(Math.max(1, absValue)) * 12;
+            const size = baseSize + Math.log(Math.max(1, absValue)) * 22;
             body = Matter.Bodies.rectangle(x, y, size, size, commonOptions);
         } else {
-            const radius = 15 + Math.sqrt(Math.max(1, absValue)) * 3;
+            const radius = 28 + Math.sqrt(Math.max(1, absValue)) * 5;
             body = Matter.Bodies.circle(x, y, radius, commonOptions);
         }
 

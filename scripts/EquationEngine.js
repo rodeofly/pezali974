@@ -4,7 +4,8 @@ export class EquationEngine {
     this.config = {
       xRange: { min: 1, max: 10 },
       coeffRange: { min: 1, max: 5 },
-      constantRange: { min: 1, max: 20 }
+      constantRange: { min: 1, max: 20 },
+      positiveOnly: false
     };
   }
 
@@ -112,6 +113,10 @@ export class EquationEngine {
     } while ((a === c || (a === 0 && c === 0)) && tries < 100);
     if (a === c) c = a + (a < maxCoeff ? 1 : -1);
     if (a === 0 && c === 0) a = 1;
+
+    // Cycle 3 : force a > c → d = (a−c)·x + b > 0 quand x, b > 0
+    // → équation et solution toujours positives.
+    if (this.config.positiveOnly && a < c) { const t = a; a = c; c = t; }
 
     const b = this.randomInt(minC, maxC);
     const d = (a * x) + b - (c * x);
@@ -230,8 +235,10 @@ export class EquationEngine {
         if (type === 'known') {
             content = `${absVal}`;
         } else {
-            if (absVal === 1) content = `<i style="font-family:'Times New Roman', serif;">x</i>`;
-            else content = `${absVal}<i style="font-family:'Times New Roman', serif;">x</i>`;
+            // 𝑥 (U+1D465) : mathematical italic small x → rendu propre par les
+            // fonts mathématiques système (STIX/Cambria Math/Latin Modern).
+            if (absVal === 1) content = `𝑥`;
+            else content = `${absVal}𝑥`;
         }
         return `${sign}${content}`;
     };
@@ -248,7 +255,8 @@ export class EquationEngine {
         return terms.map((item, i) => formatTerm(item, i)).join("");
     };
 
-    return `<span class="math-part">${buildSide(this.state.lhs)}</span> <span class="math-equal">=</span> <span class="math-part">${buildSide(this.state.rhs)}</span>`;
+    const sym = this.calculateTiltFactor().status === 'EQUILIBRIUM' ? '=' : '≠';
+    return `<span class="math-part">${buildSide(this.state.lhs)}</span> <span class="math-equal">${sym}</span> <span class="math-part">${buildSide(this.state.rhs)}</span>`;
   }
 
   getEquationString() { return "Utiliser getEquationHTML()"; }

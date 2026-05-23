@@ -14,10 +14,10 @@ export class PhysicsWorld {
         this.engine = null;
         this.leftTray = null;
         this.rightTray = null;
-        // Bacs centrés verticalement, légèrement décalés sous la moitié
-        // d'écran pour laisser de la place au fléau et à l'équation.
-        // Plateaux haut, juste sous le fléau ; pivot/socle en bas (cf. renderBalanceFrame).
-        this.trayBaseY = this.height * 0.32;
+        // Toute la balance posée au sol : la base du socle touche le haut
+        // du sol (groundTop = height - 120). trayBaseY est calculé pour que
+        // mât (50 px) + socle (~hauteur de #center-trash) viennent affleurer.
+        this.trayBaseY = this._computeTrayBaseY();
         this.frameCounter = 0;
         // Corps temporairement exclu du pesage.
         this.ignoredBody = null;
@@ -26,6 +26,22 @@ export class PhysicsWorld {
         this.weightlessBody = null;
         // Aperçu de division : nombre de secteurs dessinés sur chaque poids (mode ÷).
         this.divisorPreview = 1;
+        // Logo affiché sur le socle (chargé async ; dessiné dès que prêt).
+        this._logo = new Image();
+        this._logoReady = false;
+        this._logo.onload = () => { this._logoReady = true; };
+        this._logo.src = `${import.meta.env.BASE_URL}logo.svg`;
+    }
+
+    /** Calcule trayBaseY pour que le bas du socle affleure le haut du sol. */
+    _computeTrayBaseY() {
+        const groundTop = this.height - 120;
+        const mastLen = 90;
+        const pedH = this._centerTrashH || 100;
+        // pivotTopY = base du plateau au repos = trayBaseY + 9 (demi-épaisseur).
+        // pivotBaseY = pivotTopY + mastLen. Socle de pedH sous pivotBaseY.
+        // → pivotBaseY + pedH = groundTop  ⇒  trayBaseY = groundTop − pedH − mastLen − 9.
+        return groundTop - pedH - mastLen - 9;
     }
 
     /** Vrai si une position (coords canvas) est sur/au-dessus de la corbeille (mode −). */
@@ -55,7 +71,7 @@ export class PhysicsWorld {
                 width: this.width,
                 height: this.height,
                 wireframes: false,
-                background: C.COLORS.BACKGROUND,
+                background: 'transparent',
                 showAngleIndicator: false
             }
         });
@@ -107,7 +123,7 @@ export class PhysicsWorld {
         this.width = newW;
         this.height = newH;
         computeBalanceDims(newW, newH);
-        this.trayBaseY = (newH * 0.58) + (C.BALANCE.TRAY_WALL_HEIGHT / 2);
+        this.trayBaseY = this._computeTrayBaseY();
 
         this.render.canvas.width = newW;
         this.render.canvas.height = newH;
@@ -155,12 +171,52 @@ export class PhysicsWorld {
         const ly = this.leftTray.bounds.max.y;
         const ry = this.rightTray.bounds.max.y;
         // Mât réduit au minimum : socle juste sous le pivot.
-        const pivotBaseY = this.pivotTopY + 50;
+        const pivotBaseY = this.pivotTopY + 90;
 
         ctx.save();
         // Tout ce qu'on dessine ici va derrière les bodies déjà rendus
         // (plateaux + poids), mais devant le fond CSS noir.
         ctx.globalCompositeOperation = 'destination-over';
+
+        // Symbole « = » (équilibre) ou « ≠ » (déséquilibre) juste au-dessus du pivot.
+        // Dessiné en PREMIER → le plus en avant du calque arrière.
+        const status = this.logicEngine.calculateTiltFactor().status;
+        const isEq = status === 'EQUILIBRIUM';
+        const symY = this.pivotTopY - 55;
+        const halfW = 22;
+        const gap = 8;
+        ctx.save();
+        ctx.lineCap = 'round';
+        // Liseré sombre dessous (bevel)
+        ctx.strokeStyle = isEq ? C.COLORS.GOLD_DARK : '#7a1f17';
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(cx - halfW, symY - gap); ctx.lineTo(cx + halfW, symY - gap);
+        ctx.moveTo(cx - halfW, symY + gap); ctx.lineTo(cx + halfW, symY + gap);
+        ctx.stroke();
+        // Trait clair dessus
+        ctx.strokeStyle = isEq ? C.COLORS.GOLD_LIGHT : '#e74c3c';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(cx - halfW, symY - gap); ctx.lineTo(cx + halfW, symY - gap);
+        ctx.moveTo(cx - halfW, symY + gap); ctx.lineTo(cx + halfW, symY + gap);
+        ctx.stroke();
+        // Barre diagonale du « ≠ »
+        if (!isEq) {
+            ctx.strokeStyle = '#7a1f17';
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.moveTo(cx - halfW + 2, symY + gap + 6);
+            ctx.lineTo(cx + halfW - 2, symY - gap - 6);
+            ctx.stroke();
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(cx - halfW + 2, symY + gap + 6);
+            ctx.lineTo(cx + halfW - 2, symY - gap - 6);
+            ctx.stroke();
+        }
+        ctx.restore();
 
         // Fléau : ligne entre les deux bouts (passe par le pivot central).
         const gradient = ctx.createLinearGradient(lx2, 0, rx2, 0);
@@ -199,25 +255,40 @@ export class PhysicsWorld {
         ctx.stroke();
 
         // Socle rectangulaire (bois) sur lequel le mât vient se poser.
-        // Largeur légèrement supérieure à #center-trash, hauteur identique
-        // (mesurée dynamiquement, cache pour les frames où il est masqué).
+        // Hauteur = écart pivotBaseY → sol, pour que le socle touche le sol
+        // pile (peu importe la mesure cachée de #center-trash).
         const pedW = Math.max(280, Math.min(380, this.width * 0.84));
         const ctEl = document.getElementById('center-trash');
         if (ctEl) {
             const h = ctEl.getBoundingClientRect().height;
             if (h > 0) this._centerTrashH = h;
         }
-        const pedH = this._centerTrashH || 100;
+        const groundTop = this.height - 120;
+        const pedH = Math.max(40, groundTop - pivotBaseY);
+
+        // Logo dessiné AVANT le socle (destination-over → premier = devant) :
+        // il apparaît centré sur le socle, derrière les plateaux/poids.
+        if (this._logoReady) {
+            const aspect = (this._logo.naturalWidth / this._logo.naturalHeight) || 1;
+            const maxW = pedW * 0.7;
+            const maxH = pedH * 0.78;
+            let logoH = maxH;
+            let logoW = logoH * aspect;
+            if (logoW > maxW) { logoW = maxW; logoH = logoW / aspect; }
+            const px = cx - logoW / 2;
+            const py = pivotBaseY + (pedH - logoH) / 2;
+            ctx.drawImage(this._logo, px, py, logoW, logoH);
+        }
+
+        // Socle aux coins arrondis.
+        const ped_r = 14;
         ctx.fillStyle = C.COLORS.WOOD_DARK;
         ctx.strokeStyle = '#2b1f18';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.rect(cx - pedW / 2, pivotBaseY, pedW, pedH);
+        ctx.roundRect(cx - pedW / 2, pivotBaseY, pedW, pedH, ped_r);
         ctx.fill();
         ctx.stroke();
-        // Liseré ombré au bas pour donner le relief d'un vrai socle.
-        ctx.fillStyle = 'rgba(0,0,0,0.35)';
-        ctx.fillRect(cx - pedW / 2, pivotBaseY + pedH - 6, pedW, 6);
 
         ctx.restore();
     }
@@ -226,7 +297,8 @@ export class PhysicsWorld {
         const context = this.render.context;
         const bodies = Composite.allBodies(this.engine.world);
         
-        context.font = "bold 20px 'Times New Roman', serif"; 
+        // 'Cambria Math'/'STIX Two Math' offrent les italiques mathématiques (𝑥).
+        context.font = "bold 32px 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', 'Times New Roman', serif";
         context.textAlign = "center";
         context.textBaseline = "middle";
 
@@ -240,9 +312,9 @@ export class PhysicsWorld {
                 context.fillStyle = (value < 0) ? "#000000" : "#ffffff";
 
                 if (type === 'X') {
-                    if (value === 1) text = "x";
-                    else if (value === -1) text = "-x";
-                    else text = `${value}x`;
+                    if (value === 1) text = "𝑥";
+                    else if (value === -1) text = "-𝑥";
+                    else text = `${value}𝑥`;
                 } else {
                     text = value.toString();
                 }

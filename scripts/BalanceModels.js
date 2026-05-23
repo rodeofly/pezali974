@@ -31,7 +31,7 @@ export const BalanceModels = {
                 render: { visible: false },
                 collisionFilter: trayFilter
             };
-            const base = Bodies.rectangle(cx, trayY, trayW, 18, baseStyle);
+            const base = Bodies.rectangle(cx, trayY, trayW, 18, { ...baseStyle, chamfer: { radius: 8 } });
             const wallL = Bodies.rectangle(cx - trayW / 2, trayY - wallH / 2, 24, wallH, wallStyle);
             const wallR = Bodies.rectangle(cx + trayW / 2, trayY - wallH / 2, 24, wallH, wallStyle);
 

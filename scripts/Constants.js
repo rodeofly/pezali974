@@ -62,11 +62,11 @@ export const C = {
  * Mute C.BALANCE in place et retourne aussi les valeurs.
  */
 export function computeBalanceDims(width, height) {
-    const trayW = Math.max(170, Math.min(360, width * 0.26));
-    const wallH = Math.max(90, Math.min(170, height * 0.18));
-    const maxOffset = (width - trayW) / 2 - 60;
-    const offset = Math.max(trayW * 0.65, Math.min(width * 0.30, maxOffset));
-    const maxTravel = Math.max(50, Math.min(120, height * 0.10));
+    const trayW = Math.max(240, Math.min(480, width * 0.32));
+    const wallH = Math.max(140, Math.min(240, height * 0.22));
+    const maxOffset = (width - trayW) / 2 - 40;
+    const offset = Math.max(trayW * 0.55, Math.min(width * 0.22, maxOffset));
+    const maxTravel = Math.max(50, Math.min(140, height * 0.12));
 
     C.BALANCE.TRAY_WIDTH = trayW;
     C.BALANCE.TRAY_WALL_HEIGHT = wallH;

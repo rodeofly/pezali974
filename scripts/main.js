@@ -141,6 +141,7 @@ interactionManager.onSymmetricRemove = (data, symmetric) => {
         ui.popSlogan("Je retire la même quantité de chaque côté");
         scheduleHistorySnapshot({ kind: data.value > 0 ? 'sub' : 'add', label: opLabel(data.type, -data.value) });
     }
+    applyMode(null); // ferme la corbeille après dépôt
 };
 
 // Aucun mode actif au démarrage : barre de pouvoirs neutre, rien d'ouvert.
@@ -171,9 +172,9 @@ function buildAdaptiveBank() {
     const label = (type, val) => {
         const v = `${val}`.replace('-', '−');
         if (type !== 'X') return v;
-        if (val === 1) return 'x';
-        if (val === -1) return '−x';
-        return `${v}x`;
+        if (val === 1) return '𝑥';
+        if (val === -1) return '−𝑥';
+        return `${v}𝑥`;
     };
     const absValues = { X: new Set([1]), known: new Set([1]) }; // unités toujours présentes
     [...logic.state.lhs, ...logic.state.rhs].forEach(it => {
@@ -203,6 +204,9 @@ physics.onUpdateUI = () => {
     if (solved && !victoryAnnounced) {
         victoryAnnounced = true;
         ui.showToast(`🎉 Bravo ! Tu as isolé l'inconnue : <b>x = ${formatSolution(solved.value)}</b>`, 'success', 6000);
+        // Ligne « S = { … } » dans le journal de résolution.
+        const solHTML = `<span class="math-part">S</span> <span class="math-equal">=</span> <span class="math-part">{${formatSolution(solved.value)}}</span>`;
+        ui.commitHistoryLine(solHTML, null, 'eq-solution');
     } else if (!solved) {
         victoryAnnounced = false;
     }
@@ -226,6 +230,7 @@ ui.init({
         physics.addToZone('right', type, value, weightSystem, false);
         ui.popSlogan("J'ajoute la même quantité de chaque côté");
         scheduleHistorySnapshot({ kind: value >= 0 ? 'add' : 'sub', label: opLabel(type, value) });
+        applyMode(null); // ferme la banque après le clic
     },
     // Échelle ÷ : aperçu (secteurs sur les poids) pendant qu'on glisse.
     onDivisorPreview: (n) => { physics.divisorPreview = n; },
@@ -246,7 +251,7 @@ ui.init({
                 ui.showToast(`Division impossible : tout n'est pas divisible par ${n}.`, 'warning', 4500);
             }
         }
-        applyMode('add'); // l'échelle disparaît, la banque revient
+        applyMode(null); // l'échelle disparaît, barre neutre
     }
 });
 
