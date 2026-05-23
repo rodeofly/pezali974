@@ -106,7 +106,7 @@
     <!-- Mode + : banque dynamique. Repliée par défaut (icône +) ; clic = déplie. -->
     <div id="power-bank">
         <div class="power-bank-head">
-            <span class="power-bank-hint">Clique une puce pour ajouter le même poids des deux côtés</span>
+            <span class="power-bank-hint">Clique une puce pour ajouter le même poids des deux côtés · Double-clic sur un objet pour le casser</span>
         </div>
         <div class="power-bank-items"></div>
     </div>
@@ -115,7 +115,7 @@
     <div id="center-trash" class="hidden">
         <span class="power-badge minus" aria-hidden="true">−</span>
         <span class="trash-ico">🗑️</span>
-        <span class="trash-label">Dépose un poids ici : il est retiré, ainsi que son jumeau de l'autre côté</span>
+        <span class="trash-label">Dépose un poids ici : il est retiré, ainsi que son jumeau de l'autre côté · Double-clic sur un objet pour le casser</span>
     </div>
 
     <!-- Mode ÷ : échelle de division. Glisse vers la droite pour choisir le diviseur ; relâche pour appliquer. -->
@@ -133,8 +133,8 @@
     <div id="solver-bar">
         <div class="solver-actions" id="powers">
             <div class="power-wrap">
-                <button class="btn-power" id="op-add" data-power="add" title="Banque : ajouter le même poids des deux côtés">🏦</button>
-                <span class="power-label">Banque</span>
+                <button class="btn-power" id="op-add" data-power="add" title="+ : ajouter le même poids des deux côtés">+</button>
+                <span class="power-label">Ajouter</span>
             </div>
             <div class="power-wrap">
                 <button class="btn-power" id="op-sub" data-power="sub" title="− : retirer le même poids des deux côtés">−</button>
@@ -148,9 +148,9 @@
                 <button class="btn-power" id="op-div" data-power="div" title="÷ : échelle de division">÷</button>
                 <span class="power-label">Diviser</span>
             </div>
-            <div class="power-wrap">
+            <div class="power-wrap" style="display:none">
                 <button class="btn-power" id="btn-hammer" data-power="hammer" aria-pressed="false" title="Marteau : découper un poids">🔨</button>
-                <span class="power-label">Couper</span>
+                <span class="power-label">Casser</span>
             </div>
         </div>
     </div>

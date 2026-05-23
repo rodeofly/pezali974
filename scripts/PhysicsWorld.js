@@ -369,7 +369,9 @@ export class PhysicsWorld {
 
     addToZone(zone, type, value, weightSystem, isInstant = false) {
         const xOffset = zone === 'left' ? -C.BALANCE.TRAY_OFFSET : C.BALANCE.TRAY_OFFSET;
-        const x = (this.width / 2) + xOffset + (Math.random() * 30 - 15);
+        // x à gauche du plateau, constantes à droite (cf. spawnWeight)
+        const typeOffset = (type === 'X') ? -C.BALANCE.TRAY_WIDTH / 4 : C.BALANCE.TRAY_WIDTH / 4;
+        const x = (this.width / 2) + xOffset + typeOffset + (Math.random() * 24 - 12);
         // Mode rapide : on dépose juste à l'intérieur du bac. Mode pluie : ça tombe d'au-dessus.
         const y = this.getSpawnY(isInstant);
         const body = weightSystem.create(type, x, y, value);

@@ -20,9 +20,13 @@ interactionManager.init();
 let spawnTimeouts = [];
 
 function spawnWeight(type, val, side) {
-    const xOffset = side === 'left' ? -C.BALANCE.TRAY_OFFSET : C.BALANCE.TRAY_OFFSET; 
-    const x = (physics.width / 2) + xOffset + (Math.random() * 40 - 20);
-    const y = C.SPAWN.DROP_HEIGHT; 
+    const xOffset = side === 'left' ? -C.BALANCE.TRAY_OFFSET : C.BALANCE.TRAY_OFFSET;
+    // Sépare les zones de drop sur chaque plateau : x (variables) à gauche
+    // du plateau, constantes à droite. Évite l'empilement et reflète l'ordre
+    // de lecture « ax + b ».
+    const typeOffset = (type === 'X') ? -C.BALANCE.TRAY_WIDTH / 4 : C.BALANCE.TRAY_WIDTH / 4;
+    const x = (physics.width / 2) + xOffset + typeOffset + (Math.random() * 24 - 12);
+    const y = C.SPAWN.DROP_HEIGHT;
     const safeValue = (type === 'X' && !val) ? 1 : val;
     const body = weightSystem.create(type, x, y, safeValue);
     Matter.World.add(physics.engine.world, body);
