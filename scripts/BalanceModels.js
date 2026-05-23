@@ -12,7 +12,7 @@ export const BalanceModels = {
     simple: (centerX, baseY) => {
         const trayY = baseY;
         const trayW = C.BALANCE.TRAY_WIDTH;
-        const wallH = C.BALANCE.TRAY_WALL_HEIGHT;
+        const wallH = C.BALANCE.BOUNDS_WALL_HEIGHT; // parois invisibles très hautes
         const offset = C.BALANCE.TRAY_OFFSET;
 
         const trayFilter = {

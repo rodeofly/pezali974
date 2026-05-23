@@ -853,14 +853,14 @@ input[type=range] {
 .power-bank-hint,
 .trash-label,
 .div-scale-value {
-    font-size: clamp(1rem, 2vmin, 1.25rem);
-    line-height: 1.4;
+    font-size: clamp(0.85rem, 2vh, 1.15rem);
+    line-height: 1.35;
     text-align: center;
 }
 .power-bank-hint { color: #d1d5db; }
 .power-bank-items {
     display: flex; flex-wrap: wrap;
-    gap: clamp(10px, 2.4vw, 22px);
+    gap: clamp(6px, 1.4vh, 16px);
     justify-content: center;
     max-width: min(760px, 90vw);
 }
@@ -888,14 +888,16 @@ input[type=range] {
 .trash-label { color: #f2d4d0; }
 
 .power-chip {
-    /* Largeur = hauteur figées → cercle/carré (pas d'étirement par le texte). */
-    width: clamp(58px, 9vmin, 72px);
-    height: clamp(58px, 9vmin, 72px);
-    min-width: clamp(58px, 9vmin, 72px);
-    min-height: clamp(58px, 9vmin, 72px);
+    /* Largeur = hauteur figées → cercle/carré. Taille pilotée sur la
+       hauteur viewport (le popup lui-même est borné à ~22vh). */
+    --chip-size: clamp(38px, 8vh, 64px);
+    width: var(--chip-size);
+    height: var(--chip-size);
+    min-width: var(--chip-size);
+    min-height: var(--chip-size);
     padding: 0; border: 2px solid;
     color: #fff; font-family: 'Times New Roman', serif;
-    font-weight: bold; font-size: var(--fs-lg);
+    font-weight: bold; font-size: clamp(0.9rem, 2.5vh, 1.3rem);
     display: inline-flex; align-items: center; justify-content: center;
 }
 @media (hover: hover) {

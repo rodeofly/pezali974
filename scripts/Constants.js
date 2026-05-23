@@ -24,7 +24,10 @@ export const C = {
     // --- DIMENSIONS DES BACS (valeurs par défaut, écrasées par computeBalanceDims) ---
     BALANCE: {
         TRAY_WIDTH: 280,
-        TRAY_WALL_HEIGHT: 130,
+        TRAY_WALL_HEIGHT: 130,    // référence visuelle pour le calcul de spawn
+        BOUNDS_WALL_HEIGHT: 3000, // parois invisibles très hautes : la bounding
+                                  // box englobe toute pile au-dessus du bac →
+                                  // un poids empilé reste « dans » le plateau.
         TRAY_OFFSET: 320,
         MAX_TRAVEL: 90
     },

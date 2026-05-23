@@ -167,26 +167,22 @@ function applyMode(mode) {
 }
 function toggleMode(mode) { applyMode(activeMode === mode ? null : mode); }
 
-// Clic en dehors d'un panneau ouvert → on referme et on revient au mode neutre.
-// On filtre les drags : on ne ferme que si le pointer n'a pas bougé entre
-// mousedown et mouseup (vrai clic, pas glisser-déposer dans la corbeille).
-let _mdX = 0, _mdY = 0;
-document.addEventListener('mousedown', (e) => { _mdX = e.clientX; _mdY = e.clientY; });
-document.addEventListener('touchstart', (e) => {
-    const t = e.touches[0];
-    if (t) { _mdX = t.clientX; _mdY = t.clientY; }
-}, { passive: true });
-document.addEventListener('click', (e) => {
+// Tap/clic en dehors d'un panneau ouvert → on referme et on revient au mode
+// neutre. On utilise pointerdown/up (touch + souris unifiés) et on filtre les
+// drags via la distance pointer (> 8 px = drag → ignore, < 8 px = vrai tap).
+let _pdX = 0, _pdY = 0;
+document.addEventListener('pointerdown', (e) => { _pdX = e.clientX; _pdY = e.clientY; }, true);
+document.addEventListener('pointerup', (e) => {
     if (!activeMode) return;
-    const dx = e.clientX - _mdX, dy = e.clientY - _mdY;
-    if (dx * dx + dy * dy > 64) return; // > 8 px de déplacement → drag, on ignore
+    const dx = e.clientX - _pdX, dy = e.clientY - _pdY;
+    if (dx * dx + dy * dy > 64) return;
     const ids = ['power-bank', 'center-trash', 'division-scale'];
     const open = ids.map(id => document.getElementById(id)).find(el => el && !el.classList.contains('hidden'));
     if (!open) return;
     if (open.contains(e.target)) return;
-    if (e.target.closest('.btn-power, #floating-actions, #settings-panel, #help-panel')) return;
+    if (e.target.closest('.btn-power, #actions-left, #actions-right, #settings-panel, #help-panel')) return;
     applyMode(null);
-});
+}, true);
 
 // Construit la banque du pouvoir + : valeurs présentes sur la balance + leurs
 // inverses, plus les unités de base (x, -x, 1, -1).
