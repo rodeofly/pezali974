@@ -33,14 +33,23 @@ export class PhysicsWorld {
         this._logo.src = `${import.meta.env.BASE_URL}logo.svg`;
     }
 
+    /** Longueur du mât, proportionnelle à la hauteur (compact en paysage smartphone). */
+    _mastLen() {
+        return Math.max(40, Math.min(90, this.height * 0.10));
+    }
+
+    /** Altitude du haut du sol — collé en bas de l'écran (laisse passer la barre des pouvoirs en overlay). */
+    _groundTop() {
+        return this.height - 24;
+    }
+
     /** Calcule trayBaseY pour que le bas du socle affleure le haut du sol. */
     _computeTrayBaseY() {
-        const groundTop = this.height - 120;
-        const mastLen = 90;
-        const pedH = this._centerTrashH || 100;
-        // pivotTopY = base du plateau au repos = trayBaseY + 9 (demi-épaisseur).
-        // pivotBaseY = pivotTopY + mastLen. Socle de pedH sous pivotBaseY.
-        // → pivotBaseY + pedH = groundTop  ⇒  trayBaseY = groundTop − pedH − mastLen − 9.
+        const groundTop = this._groundTop();
+        const mastLen = this._mastLen();
+        // Hauteur de socle estimée : mesurée sur #center-trash si déjà connue,
+        // sinon proportionnelle à la hauteur.
+        const pedH = this._centerTrashH || Math.max(60, Math.min(100, this.height * 0.12));
         return groundTop - pedH - mastLen - 9;
     }
 
@@ -171,7 +180,7 @@ export class PhysicsWorld {
         const ly = this.leftTray.bounds.max.y;
         const ry = this.rightTray.bounds.max.y;
         // Mât réduit au minimum : socle juste sous le pivot.
-        const pivotBaseY = this.pivotTopY + 90;
+        const pivotBaseY = this.pivotTopY + this._mastLen();
 
         ctx.save();
         // Tout ce qu'on dessine ici va derrière les bodies déjà rendus
@@ -263,30 +272,8 @@ export class PhysicsWorld {
             const h = ctEl.getBoundingClientRect().height;
             if (h > 0) this._centerTrashH = h;
         }
-        const groundTop = this.height - 120;
+        const groundTop = this._groundTop();
         const pedH = Math.max(40, groundTop - pivotBaseY);
-
-        // Logo dessiné AVANT le socle (destination-over → premier = devant) :
-        // il apparaît centré sur le socle, derrière les plateaux/poids.
-        if (this._logoReady) {
-            const aspect = (this._logo.naturalWidth / this._logo.naturalHeight) || 1;
-            const maxW = pedW * 0.7;
-            const maxH = pedH * 0.78;
-            let logoH = maxH;
-            let logoW = logoH * aspect;
-            if (logoW > maxW) { logoW = maxW; logoH = logoW / aspect; }
-            const px = cx - logoW / 2;
-            const py = pivotBaseY + (pedH - logoH) / 2;
-            const prevAlpha = ctx.globalAlpha;
-            const prevFilter = ctx.filter;
-            // Effet gravure : ombre sombre offset haut-gauche (rim qui casse
-            // la lumière) + reflet clair offset bas-droite (fond du sillon).
-            ctx.filter = 'drop-shadow(-1px -1px 0 rgba(0,0,0,0.75)) drop-shadow(1.5px 1.5px 0 rgba(255,255,255,0.28))';
-            ctx.globalAlpha = 0.4;
-            ctx.drawImage(this._logo, px, py, logoW, logoH);
-            ctx.filter = prevFilter;
-            ctx.globalAlpha = prevAlpha;
-        }
 
         // Socle aux coins arrondis.
         const ped_r = 14;
@@ -386,10 +373,10 @@ export class PhysicsWorld {
     }
 
     createBoundaries() {
-        // Sol relevé au-dessus de la barre du bas : les poids libres (banque,
-        // ou tombés à côté d'un bac) restent visibles et restent attrapables.
-        const groundTop = this.height - 120;
-        const ground = Bodies.rectangle(this.width / 2, groundTop + 50, this.width * 3, 100, {
+        // Sol fin (20 px) au-dessus de la réserve basse (responsive).
+        const groundTop = this._groundTop();
+        const groundH = 20;
+        const ground = Bodies.rectangle(this.width / 2, groundTop + groundH / 2, this.width * 3, groundH, {
             isStatic: true, label: 'ground', render: { fillStyle: '#26262e' }
         });
         const leftWall = Bodies.rectangle(-50, this.height/2, 100, this.height*4, { isStatic: true });

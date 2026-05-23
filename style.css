@@ -521,6 +521,19 @@ body.hammer-active #scene-container { cursor: crosshair; }
 
 .hidden { display: none !important; }
 
+/* Logo discret collé au sol, coin bas-gauche. */
+#corner-logo {
+    position: fixed;
+    bottom: var(--safe-bottom);
+    left: calc(var(--space-2) + var(--safe-left));
+    width: clamp(44px, 8vmin, 72px);
+    height: auto;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 30;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
 /* --- PANNEAU D'AIDE --- */
 #help-panel .help-intro { color: #d1d5db; line-height: 1.5; margin: 0 0 var(--space-4); font-size: var(--fs-md); }
 #help-panel .help-list { list-style: none; padding: 0; margin: 0; }
@@ -632,12 +645,14 @@ input[type=range] {
 #power-div:hover { background: #2471a3; }
 
 /* --- BANQUE ADAPTATIVE (pouvoir +) --- */
+/* Banque centrée verticalement, largeur calée sur celle du socle (clamp identique). */
 #power-bank {
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 95;
+    width: clamp(280px, 84vw, 380px);
     max-width: calc(100vw - 2 * var(--space-3));
     background: rgba(30,30,36,0.92);
     border: 1px solid #555;
@@ -646,7 +661,12 @@ input[type=range] {
     box-shadow: 0 8px 25px rgba(0,0,0,0.5);
     pointer-events: none;
 }
-#power-bank:not(.hidden) { animation: trash-pop 0.35s cubic-bezier(.34,1.56,.64,1); }
+#power-bank:not(.hidden) { animation: bank-pop 0.35s cubic-bezier(.34,1.56,.64,1); }
+@keyframes bank-pop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 #power-bank.bank-armed { border: 2px dashed #c0392b; box-shadow: 0 8px 25px rgba(192,57,43,0.35); }
 .power-bank-head {
     display: flex; align-items: center; justify-content: center; gap: var(--space-2);
