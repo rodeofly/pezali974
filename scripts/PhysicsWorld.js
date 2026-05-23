@@ -16,7 +16,8 @@ export class PhysicsWorld {
         this.rightTray = null;
         // Bacs centrés verticalement, légèrement décalés sous la moitié
         // d'écran pour laisser de la place au fléau et à l'équation.
-        this.trayBaseY = (this.height * 0.58) + (C.BALANCE.TRAY_WALL_HEIGHT / 2);
+        // Plateaux haut, juste sous le fléau ; pivot/socle en bas (cf. renderBalanceFrame).
+        this.trayBaseY = this.height * 0.32;
         this.frameCounter = 0;
         // Corps temporairement exclu du pesage.
         this.ignoredBody = null;
@@ -148,25 +149,21 @@ export class PhysicsWorld {
         const wallH = C.BALANCE.TRAY_WALL_HEIGHT;
         const lx = this.leftTray.position.x;
         const rx = this.rightTray.position.x;
-        const ly = this.leftTray.position.y - wallH / 2;
-        const ry = this.rightTray.position.y - wallH / 2;
-        const beamY = (ly + ry) / 2 - 12;
-        const pivotBaseY = this.trayBaseY + 70;
+        // Centre-bas de chaque plateau = bout du fléau (point d'attache pivot).
+        const lx2 = this.leftTray.position.x;
+        const rx2 = this.rightTray.position.x;
+        const ly = this.leftTray.bounds.max.y;
+        const ry = this.rightTray.bounds.max.y;
+        // Mât réduit au minimum : socle juste sous le pivot.
+        const pivotBaseY = this.pivotTopY + 50;
 
         ctx.save();
+        // Tout ce qu'on dessine ici va derrière les bodies déjà rendus
+        // (plateaux + poids), mais devant le fond CSS noir.
+        ctx.globalCompositeOperation = 'destination-over';
 
-        ctx.strokeStyle = 'rgba(189,195,199,0.55)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 6]);
-        ctx.beginPath();
-        ctx.moveTo(lx, ly);
-        ctx.lineTo(lx, ly - 22);
-        ctx.moveTo(rx, ry);
-        ctx.lineTo(rx, ry - 22);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        const gradient = ctx.createLinearGradient(lx, 0, rx, 0);
+        // Fléau : ligne entre les deux bouts (passe par le pivot central).
+        const gradient = ctx.createLinearGradient(lx2, 0, rx2, 0);
         gradient.addColorStop(0, C.COLORS.WOOD_DARK);
         gradient.addColorStop(0.5, '#6b4f3f');
         gradient.addColorStop(1, C.COLORS.WOOD_DARK);
@@ -174,41 +171,53 @@ export class PhysicsWorld {
         ctx.lineWidth = 10;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(lx, ly - 22);
-        ctx.lineTo(rx, ry - 22);
+        ctx.moveTo(lx2, ly);
+        ctx.lineTo(rx2, ry);
         ctx.stroke();
 
+        // Pivot central (axe de rotation du fléau).
         ctx.fillStyle = C.COLORS.GOLD_LIGHT;
-        ctx.beginPath();
-        ctx.arc(cx, beamY - 4, 7, 0, Math.PI * 2);
-        ctx.fill();
         ctx.strokeStyle = C.COLORS.GOLD_DARK;
         ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, this.pivotTopY, 7, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
 
+        // Pivots aux bouts (articulation fléau ↔ plateau).
+        ctx.fillStyle = C.COLORS.GOLD_DARK;
+        ctx.beginPath(); ctx.arc(lx2, ly, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(rx2, ry, 4, 0, Math.PI * 2); ctx.fill();
+
+        // Mât du pivot central jusqu'au socle en bas.
         ctx.strokeStyle = C.COLORS.WOOD_DARK;
         ctx.lineWidth = 6;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(cx, beamY - 4);
+        ctx.moveTo(cx, this.pivotTopY);
         ctx.lineTo(cx, pivotBaseY - 4);
         ctx.stroke();
 
-        const pivotW = 90;
-        const pivotH = 50;
+        // Socle rectangulaire (bois) sur lequel le mât vient se poser.
+        // Largeur légèrement supérieure à #center-trash, hauteur identique
+        // (mesurée dynamiquement, cache pour les frames où il est masqué).
+        const pedW = Math.max(280, Math.min(380, this.width * 0.84));
+        const ctEl = document.getElementById('center-trash');
+        if (ctEl) {
+            const h = ctEl.getBoundingClientRect().height;
+            if (h > 0) this._centerTrashH = h;
+        }
+        const pedH = this._centerTrashH || 100;
         ctx.fillStyle = C.COLORS.WOOD_DARK;
         ctx.strokeStyle = '#2b1f18';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(cx, pivotBaseY - pivotH);
-        ctx.lineTo(cx - pivotW / 2, pivotBaseY);
-        ctx.lineTo(cx + pivotW / 2, pivotBaseY);
-        ctx.closePath();
+        ctx.rect(cx - pedW / 2, pivotBaseY, pedW, pedH);
         ctx.fill();
         ctx.stroke();
-
-        ctx.fillStyle = '#2b1f18';
-        ctx.fillRect(cx - pivotW * 0.7, pivotBaseY, pivotW * 1.4, 8);
+        // Liseré ombré au bas pour donner le relief d'un vrai socle.
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(cx - pedW / 2, pivotBaseY + pedH - 6, pedW, 6);
 
         ctx.restore();
     }
@@ -279,6 +288,15 @@ export class PhysicsWorld {
         this.leftTray = model.leftTray;
         this.rightTray = model.rightTray;
         World.add(this.engine.world, model.composites);
+
+        // Décalage centroïde → bas du plateau, pour pouvoir placer le centre-bas
+        // (point d'attache au bout du fléau) à la position arc-tangentielle exacte.
+        this.leftTray.bottomOffset = this.leftTray.bounds.max.y - this.leftTray.position.y;
+        this.rightTray.bottomOffset = this.rightTray.bounds.max.y - this.rightTray.position.y;
+        // Position du pivot central : niveau du bas des plateaux au repos.
+        // Le fléau s'incline autour de ce point.
+        this.pivotTopY = this.leftTray.bounds.max.y;
+        this.currentAngle = 0;
     }
 
     /** Hauteur d'apparition d'un poids, relative à la position des bacs. */
@@ -300,29 +318,36 @@ export class PhysicsWorld {
     }
 
     /**
-     * Déplace verticalement les deux bacs selon le déséquilibre :
-     * le côté le plus lourd descend, l'autre monte. Mouvement lissé,
-     * borné par MAX_TRAVEL → la balance ne « part plus dans tous les sens ».
+     * Place les bacs en arc autour du pivot central, selon le déséquilibre.
+     * Le fléau a pour longueur 2·L ; chaque bout (et donc le centre-bas du
+     * plateau qui y est fixé) suit un arc de rayon L. Les plateaux restent
+     * horizontaux (on ne touche pas leur angle).
      */
     syncTrayPositions() {
         if (!this.leftTray || !this.rightTray) return;
 
         const { delta } = this.logicEngine.calculateTiltFactor();
-        const max = C.BALANCE.MAX_TRAVEL;
-        const offset = Math.max(-max, Math.min(max, delta * C.PHYSICS.SENSITIVITY));
+        const L = C.BALANCE.TRAY_OFFSET;
+        // Angle max dérivé du débattement vertical configuré.
+        const maxAngle = Math.asin(Math.min(1, C.BALANCE.MAX_TRAVEL / L));
+        const targetAngle = Math.max(-maxAngle, Math.min(maxAngle, delta * C.PHYSICS.SENSITIVITY / L));
 
-        // delta > 0 : la gauche est plus lourde → elle descend (y augmente)
-        const leftTarget = this.trayBaseY + offset;
-        const rightTarget = this.trayBaseY - offset;
         const ease = C.PHYSICS.EASING;
+        this.currentAngle += (targetAngle - this.currentAngle) * ease;
 
-        const moveTray = (tray, targetY) => {
-            const newY = tray.position.y + (targetY - tray.position.y) * ease;
-            Body.setPosition(tray, { x: tray.position.x, y: newY });
-        };
+        const theta = this.currentAngle;
+        const cx = this.width / 2;
+        const cos = Math.cos(theta), sin = Math.sin(theta);
 
-        moveTray(this.leftTray, leftTarget);
-        moveTray(this.rightTray, rightTarget);
+        // delta > 0 → gauche plus lourde → bout gauche descend (y augmente),
+        // et se rapproche du centre (x augmente). Symétrique à droite.
+        const leftEndX  = cx - L * cos;
+        const leftEndY  = this.pivotTopY + L * sin;
+        const rightEndX = cx + L * cos;
+        const rightEndY = this.pivotTopY - L * sin;
+
+        Body.setPosition(this.leftTray,  { x: leftEndX,  y: leftEndY  - this.leftTray.bottomOffset  });
+        Body.setPosition(this.rightTray, { x: rightEndX, y: rightEndY - this.rightTray.bottomOffset });
     }
 
     clearWeights() {
@@ -368,10 +393,11 @@ export class PhysicsWorld {
     }
 
     addToZone(zone, type, value, weightSystem, isInstant = false) {
-        const xOffset = zone === 'left' ? -C.BALANCE.TRAY_OFFSET : C.BALANCE.TRAY_OFFSET;
-        // x à gauche du plateau, constantes à droite (cf. spawnWeight)
+        // Suit la position courante du plateau (qui glisse horizontalement
+        // quand le fléau s'incline). x à gauche du plateau, constantes à droite.
+        const tray = zone === 'left' ? this.leftTray : this.rightTray;
         const typeOffset = (type === 'X') ? -C.BALANCE.TRAY_WIDTH / 4 : C.BALANCE.TRAY_WIDTH / 4;
-        const x = (this.width / 2) + xOffset + typeOffset + (Math.random() * 24 - 12);
+        const x = tray.position.x + typeOffset + (Math.random() * 24 - 12);
         // Mode rapide : on dépose juste à l'intérieur du bac. Mode pluie : ça tombe d'au-dessus.
         const y = this.getSpawnY(isInstant);
         const body = weightSystem.create(type, x, y, value);

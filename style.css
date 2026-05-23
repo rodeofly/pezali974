@@ -28,6 +28,10 @@
     --tap: clamp(40px, 7vmin, 48px);
     --tap-lg: clamp(44px, 8vmin, 54px);
 
+    /* Hauteur effective de #solver-bar (padding + bouton + gap + label) :
+       sert à empiler power-bank / division-scale / center-trash juste au-dessus. */
+    --solver-bar-h: calc(2 * var(--space-2) + var(--tap) + 3px + var(--fs-xs));
+
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
@@ -580,9 +584,9 @@ input[type=range] {
 /* --- BANQUE ADAPTATIVE (pouvoir +) --- */
 #power-bank {
     position: fixed;
-    bottom: calc(var(--tap) + var(--fs-xs) + var(--space-5) + var(--safe-bottom));
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     z-index: 95;
     max-width: calc(100vw - 2 * var(--space-3));
     background: rgba(30,30,36,0.92);
@@ -592,6 +596,7 @@ input[type=range] {
     box-shadow: 0 8px 25px rgba(0,0,0,0.5);
     pointer-events: none;
 }
+#power-bank:not(.hidden) { animation: trash-pop 0.35s cubic-bezier(.34,1.56,.64,1); }
 #power-bank.bank-armed { border: 2px dashed #c0392b; box-shadow: 0 8px 25px rgba(192,57,43,0.35); }
 .power-bank-head {
     display: flex; align-items: center; justify-content: center; gap: var(--space-2);
@@ -611,9 +616,9 @@ input[type=range] {
 /* --- ÉCHELLE DE DIVISION (mode ÷) --- */
 #division-scale {
     position: fixed;
-    bottom: calc(var(--tap) + var(--fs-xs) + var(--space-5) + var(--safe-bottom));
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     z-index: 95;
     width: clamp(260px, 80vw, 360px);
     max-width: calc(100vw - 2 * var(--space-3));
@@ -623,6 +628,7 @@ input[type=range] {
     padding: var(--space-3) var(--space-4);
     box-shadow: 0 8px 25px rgba(0,0,0,0.5);
 }
+#division-scale:not(.hidden) { animation: trash-pop 0.35s cubic-bezier(.34,1.56,.64,1); }
 .div-scale-head {
     display: flex; align-items: center; justify-content: center; gap: var(--space-2);
     margin-bottom: var(--space-2);
@@ -650,12 +656,12 @@ input[type=range] {
 .bank-col { display: flex; flex-direction: column; gap: 6px; }
 .power-chip { pointer-events: auto; }
 
-/* --- CORBEILLE (mode −) --- */
+/* --- CORBEILLE (mode −) — pop au centre de l'écran --- */
 #center-trash {
     position: fixed;
-    bottom: calc(var(--tap) + var(--fs-xs) + var(--space-5) + var(--safe-bottom));
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     z-index: 95;
     width: clamp(240px, 78vw, 320px);
     min-height: 80px;
@@ -667,6 +673,15 @@ input[type=range] {
     padding: var(--space-3) var(--space-4);
     box-shadow: 0 8px 25px rgba(0,0,0,0.5);
     pointer-events: none;
+}
+#center-trash:not(.hidden) { animation: trash-pop 0.35s cubic-bezier(.34,1.56,.64,1); }
+@keyframes trash-pop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #center-trash:not(.hidden) { animation: none; }
 }
 .trash-ico { font-size: var(--fs-xl); }
 .trash-label { font-size: var(--fs-xs); color: #e8a39c; text-align: center; }
@@ -740,11 +755,6 @@ input:checked + .slider-round:before { transform: translateX(14px); }
     .trash-title { font-size: 0.55rem; }
     .trash-chip { font-size: 0.75rem; padding: 2px 6px; min-width: 22px; }
 
-    /* La banque adaptative et l'échelle remontent un peu pour laisser
-       la barre de pouvoirs respirer sans se chevaucher. */
-    #power-bank, #division-scale, #center-trash {
-        bottom: calc(var(--tap) + var(--fs-xs) + var(--space-4) + var(--safe-bottom));
-    }
 }
 
 /* Très petits écrans : on compresse encore */
@@ -776,10 +786,6 @@ input:checked + .slider-round:before { transform: translateX(14px); }
         bottom: calc(4px + var(--safe-bottom));
         padding: 4px var(--space-3);
     }
-    #power-bank, #division-scale, #center-trash {
-        bottom: calc(var(--tap) + var(--fs-xs) + 8px + var(--safe-bottom));
-    }
-
     #floating-actions { gap: 6px; }
 }
 
